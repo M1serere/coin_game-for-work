@@ -142,9 +142,9 @@ dragging_slider = None
 top_reset_message = ""
 top_reset_message_time = 0
 
-pause_button = pygame.Rect(505, 20, 80, 35)
-continue_button = pygame.Rect(595, 20, 90, 35)
-settings_button = pygame.Rect(SCREEN_WIDTH // 2 + 20, 485, 160, 40)
+pause_button = pygame.Rect(620, 20, 75, 35)
+continue_button = pygame.Rect(700, 20, 90, 35)
+settings_button = pygame.Rect(665, 20, 125, 35)
 settings_close_button = pygame.Rect(SCREEN_WIDTH // 2 - 70, SCREEN_HEIGHT // 2 + 135, 140, 40)
 music_slider = pygame.Rect(SCREEN_WIDTH // 2 - 150, SCREEN_HEIGHT // 2 - 45, 300, 8)
 player_speed_slider = pygame.Rect(SCREEN_WIDTH // 2 - 150, SCREEN_HEIGHT // 2 + 25, 300, 8)
@@ -152,8 +152,9 @@ enemy_speed_slider = pygame.Rect(SCREEN_WIDTH // 2 - 150, SCREEN_HEIGHT // 2 + 9
 reset_top_button = pygame.Rect(SCREEN_WIDTH // 2 - 110, 535, 220, 38)
 name_continue_button = pygame.Rect(SCREEN_WIDTH // 2 + 10, SCREEN_HEIGHT // 2 + 80, 180, 40)
 name_clear_button = pygame.Rect(SCREEN_WIDTH // 2 - 190, SCREEN_HEIGHT // 2 + 80, 180, 40)
-start_game_button = pygame.Rect(SCREEN_WIDTH // 2 - 180, 485, 160, 40)
+start_game_button = pygame.Rect(SCREEN_WIDTH // 2 - 80, 485, 160, 40)
 restart_button = pygame.Rect(SCREEN_WIDTH // 2 - 110, SCREEN_HEIGHT // 2 + 115, 220, 40)
+main_menu_button = pygame.Rect(SCREEN_WIDTH // 2 - 110, SCREEN_HEIGHT // 2 + 160, 220, 40)
 
 goal_buttons = {
     10: pygame.Rect(SCREEN_WIDTH // 2 - 210, 325, 120, 38),
@@ -282,11 +283,15 @@ def start_game(start_time):
     enemy_speed_bonus = 0
     play_background_music(play_music)
 
-def restart_game():
+def reset_round():
     global player, coin_x, coin_y, enemies, score, game_over, result_text
-    global start_screen, game_start_time, game_elapsed_time, last_frame_time
+    global game_start_time, game_elapsed_time, last_frame_time
     global paused, time_warning_played
-    global last_enemy_double_time, enemy_speed_bonus    
+    global last_enemy_double_time, enemy_speed_bonus
+
+    last_enemy_double_time = 0
+    enemy_speed_bonus = 0
+
     player = Player(
         x=SCREEN_WIDTH // 2 - 20,
         y=SCREEN_HEIGHT // 2 - 20,
@@ -302,17 +307,24 @@ def restart_game():
     score = 0
     game_over = False
     result_text = ""
-    start_screen = True
     game_start_time = 0
     game_elapsed_time = 0
     last_frame_time = pygame.time.get_ticks()
 
-    play_background_music(menu_music)
     paused = False
 
     time_warning_played = False
-    last_enemy_double_time = 0
-    enemy_speed_bonus = 0
+
+def start_new_game(start_time):
+    reset_round()
+    start_game(start_time)
+
+def restart_game():
+    global start_screen
+
+    reset_round()
+    start_screen = True
+    play_background_music(menu_music)
 
 while running:
     clock.tick(60)
@@ -406,6 +418,9 @@ while running:
                 mouse_pos = event.pos
 
                 if restart_button.collidepoint(mouse_pos):
+                    start_new_game(current_time)
+
+                if main_menu_button.collidepoint(mouse_pos):
                     restart_game()
 
         if event.type == pygame.MOUSEBUTTONUP:
@@ -441,8 +456,10 @@ while running:
             if event.key == pygame.K_RETURN:
                 if input_name_screen and nickname.strip() != "":
                     input_name_screen = False
+                elif not input_name_screen and start_screen and not settings_open:
+                    start_game(current_time)
                 elif game_over:
-                    restart_game()
+                    start_new_game(current_time)
 
         if event.type == pygame.TEXTINPUT and input_name_screen:
             if event.text.isprintable() and len(nickname) < 15:
@@ -467,7 +484,7 @@ while running:
 
         if remaining_time <= 0:
             game_over = True
-            result_text = "Ты проиграл!"
+            result_text = "Поражение"
             db.save_score(nickname, score)
             time_sound.stop()
             play_background_music(lose_music, loops=0)
@@ -509,7 +526,7 @@ while running:
 
         if score >= win_score:
             game_over = True
-            result_text = "Ты выиграл!"
+            result_text = "Победа"
             db.save_score(nickname, score)
             time_sound.stop()
             play_background_music(win_music, loops=0)
@@ -521,7 +538,7 @@ while running:
         for enemy in enemies:
             if player.get_rect().colliderect(enemy.get_rect()):
                 game_over = True
-                result_text = "Ты проиграл!"
+                result_text = "Поражение"
                 db.save_score(nickname, score)
                 time_sound.stop()
                 play_background_music(lose_music, loops=0)
@@ -666,7 +683,7 @@ while running:
         top_players = db.get_top_players()
 
         card_width = 420
-        card_height = 380
+        card_height = 410
 
         card_x = SCREEN_WIDTH // 2 - card_width // 2
         card_y = SCREEN_HEIGHT // 2 - card_height // 2
@@ -684,7 +701,7 @@ while running:
             2
         )
 
-        if result_text == "Ты выиграл!":
+        if result_text == "Победа":
             result_color = (0, 150, 0)
         else:
             result_color = (200, 0, 0)
@@ -705,7 +722,8 @@ while running:
             screen.blit(text, text_rect)
             y_offset += 28
 
-        draw_button(restart_button, "Играть снова")
+        draw_button(restart_button, "Новая игра")
+        draw_button(main_menu_button, "Главное меню")
 
     pygame.display.update()
 
