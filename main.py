@@ -2,6 +2,7 @@ import pygame
 import random
 from player import Player
 from database import Database
+from enemy import Enemy
 
 
 pygame.init()
@@ -32,11 +33,13 @@ coin_size = 25
 coin_x = random.randint(0, SCREEN_WIDTH - coin_size)
 coin_y = random.randint(100, SCREEN_HEIGHT - coin_size)
 
-enemy_size = 45
-
-enemy_x = random.randint(0, SCREEN_WIDTH - enemy_size)
-enemy_y = random.randint(100, SCREEN_HEIGHT - enemy_size)
-
+enemy = Enemy(
+    x=random.randint(0, SCREEN_WIDTH - 45),
+    y=random.randint(100, SCREEN_HEIGHT - 45),
+    size=45,
+    speed_x=3,
+    speed_y=3
+)
 score = 0
 win_score = 10
 
@@ -45,6 +48,31 @@ result_text = ""
 
 running = True
 
+def restart_game():
+    global player, coin_x, coin_y, enemy, score, game_over, result_text
+
+    player = Player(
+        x=SCREEN_WIDTH // 2,
+        y=SCREEN_HEIGHT // 2,
+        size=40,
+        speed=5
+    )
+
+    coin_x = random.randint(0, SCREEN_WIDTH - coin_size)
+    coin_y = random.randint(100, SCREEN_HEIGHT - coin_size)
+
+    enemy = Enemy(
+        x=random.randint(0, SCREEN_WIDTH - 45),
+        y=random.randint(100, SCREEN_HEIGHT - 45),
+        size=45,
+        speed_x=3,
+        speed_y=3
+    )
+
+    score = 0
+    game_over = False
+    result_text = ""
+
 while running:
     clock.tick(60)
 
@@ -52,13 +80,18 @@ while running:
         if event.type == pygame.QUIT:
             running = False
 
+        if event.type == pygame.KEYDOWN:
+            if game_over and event.key == pygame.K_r:
+                restart_game()
+
     keys = pygame.key.get_pressed()
 
     if not game_over:
         player.move(keys, SCREEN_WIDTH, SCREEN_HEIGHT)
+        enemy.move(SCREEN_WIDTH, SCREEN_HEIGHT)
 
     coin_rect = pygame.Rect(coin_x, coin_y, coin_size, coin_size)
-    enemy_rect = pygame.Rect(enemy_x, enemy_y, enemy_size, enemy_size)
+    enemy_rect = enemy.get_rect()
 
     if not game_over and player.get_rect().colliderect(coin_rect):
         score += 1
@@ -85,11 +118,7 @@ while running:
         coin_size // 2
     )
 
-    pygame.draw.rect(
-        screen,
-        (220, 0, 0),
-        (enemy_x, enemy_y, enemy_size, enemy_size)
-    )
+    enemy.draw(screen)
 
     player.draw(screen)
 
@@ -113,7 +142,7 @@ while running:
 
         result_surface = font.render(result_text, True, result_color)
         restart_surface = small_font.render(
-            "Собери 10 монет и не касайся красного врага.",
+            "Нажми R, чтобы сыграть снова, или закрой окно.",
             True,
             (50, 50, 50)
         )
