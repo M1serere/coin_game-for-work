@@ -31,6 +31,11 @@ coin_x = random.randint(0, SCREEN_WIDTH - coin_size)
 coin_y = random.randint(100, SCREEN_HEIGHT - coin_size)
 
 score = 0
+win_score = 10
+
+game_over = False
+result_text = ""
+
 running = True
 
 while running:
@@ -41,14 +46,21 @@ while running:
             running = False
 
     keys = pygame.key.get_pressed()
-    player.move(keys, SCREEN_WIDTH, SCREEN_HEIGHT)
+
+    if not game_over:
+        player.move(keys, SCREEN_WIDTH, SCREEN_HEIGHT)
 
     coin_rect = pygame.Rect(coin_x, coin_y, coin_size, coin_size)
 
-    if player.get_rect().colliderect(coin_rect):
+    if not game_over and player.get_rect().colliderect(coin_rect):
         score += 1
-        coin_x = random.randint(0, SCREEN_WIDTH - coin_size)
-        coin_y = random.randint(100, SCREEN_HEIGHT - coin_size)
+
+        if score >= win_score:
+            game_over = True
+            result_text = "Ты выиграл!"
+        else:
+            coin_x = random.randint(0, SCREEN_WIDTH - coin_size)
+            coin_y = random.randint(100, SCREEN_HEIGHT - coin_size)
 
     screen.fill((240, 240, 240))
 
@@ -64,13 +76,26 @@ while running:
     #pygame.draw.rect(screen, (255, 215, 0), coin_rect)
     score_text = font.render(f"Игрок: {nickname} | Очки: {score}", True, (0, 0, 0))
     help_text = small_font.render(
-        "Собирай жёлтые монетки. Каждая монетка даёт 1 очко.",
+        "Собери 10 монет, чтобы выиграть.",
         True,
         (50, 50, 50)
     )
 
     screen.blit(score_text, (20, 20))
     screen.blit(help_text, (20, 60))
+
+    if game_over:
+        result_surface = font.render(result_text, True, (0, 150, 0))
+        restart_surface = small_font.render(
+            "Закрой окно, чтобы завершить игру.",
+            True,
+            (50, 50, 50)
+        )
+
+        screen.blit(result_surface, (SCREEN_WIDTH // 2 - 80, SCREEN_HEIGHT // 2 - 30))
+        screen.blit(restart_surface, (SCREEN_WIDTH // 2 - 160, SCREEN_HEIGHT // 2 + 10))
+
+    pygame.display.update()
 
     pygame.display.update()
 
