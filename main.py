@@ -23,7 +23,13 @@ time_sound = pygame.mixer.Sound(os.path.join(MUSIC_DIR, "time_m.mp3"))
 current_music = None
 music_volume = 0.6
 player_speed = 5
-enemy_base_speed = 3
+enemy_base_speed = 4
+
+PLAYER_SPEED_MIN = 2
+PLAYER_SPEED_MAX = 9
+ENEMY_SPEED_MIN = 1
+ENEMY_SPEED_MAX = 8
+MAX_SPEED_DIFFERENCE = 1
 
 def play_background_music(path, loops=-1):
     global current_music
@@ -138,26 +144,26 @@ top_reset_message_time = 0
 
 pause_button = pygame.Rect(505, 20, 80, 35)
 continue_button = pygame.Rect(595, 20, 90, 35)
-settings_button = pygame.Rect(690, 20, 100, 35)
+settings_button = pygame.Rect(SCREEN_WIDTH // 2 + 20, 485, 160, 40)
 settings_close_button = pygame.Rect(SCREEN_WIDTH // 2 - 70, SCREEN_HEIGHT // 2 + 135, 140, 40)
 music_slider = pygame.Rect(SCREEN_WIDTH // 2 - 150, SCREEN_HEIGHT // 2 - 45, 300, 8)
 player_speed_slider = pygame.Rect(SCREEN_WIDTH // 2 - 150, SCREEN_HEIGHT // 2 + 25, 300, 8)
 enemy_speed_slider = pygame.Rect(SCREEN_WIDTH // 2 - 150, SCREEN_HEIGHT // 2 + 95, 300, 8)
-reset_top_button = pygame.Rect(SCREEN_WIDTH // 2 - 110, 535, 220, 40)
+reset_top_button = pygame.Rect(SCREEN_WIDTH // 2 - 110, 535, 220, 38)
 name_continue_button = pygame.Rect(SCREEN_WIDTH // 2 + 10, SCREEN_HEIGHT // 2 + 80, 180, 40)
 name_clear_button = pygame.Rect(SCREEN_WIDTH // 2 - 190, SCREEN_HEIGHT // 2 + 80, 180, 40)
-start_game_button = pygame.Rect(SCREEN_WIDTH // 2 - 100, 490, 200, 40)
+start_game_button = pygame.Rect(SCREEN_WIDTH // 2 - 180, 485, 160, 40)
 restart_button = pygame.Rect(SCREEN_WIDTH // 2 - 110, SCREEN_HEIGHT // 2 + 115, 220, 40)
 
 goal_buttons = {
-    10: pygame.Rect(SCREEN_WIDTH // 2 - 210, 390, 120, 38),
-    20: pygame.Rect(SCREEN_WIDTH // 2 - 60, 390, 120, 38),
-    50: pygame.Rect(SCREEN_WIDTH // 2 + 90, 390, 120, 38)
+    10: pygame.Rect(SCREEN_WIDTH // 2 - 210, 325, 120, 38),
+    20: pygame.Rect(SCREEN_WIDTH // 2 - 60, 325, 120, 38),
+    50: pygame.Rect(SCREEN_WIDTH // 2 + 90, 325, 120, 38)
 }
 
 difficulty_buttons = {
-    "easy": pygame.Rect(SCREEN_WIDTH // 2 - 150, 440, 130, 38),
-    "hard": pygame.Rect(SCREEN_WIDTH // 2 + 20, 440, 130, 38)
+    "easy": pygame.Rect(SCREEN_WIDTH // 2 - 150, 405, 130, 38),
+    "hard": pygame.Rect(SCREEN_WIDTH // 2 + 20, 405, 130, 38)
 }
 
 running = True
@@ -179,6 +185,39 @@ def draw_slider(slider_rect, value, min_value, max_value, label, suffix=""):
 
     pygame.draw.circle(screen, (0, 100, 200), knob_center, 12)
     pygame.draw.circle(screen, (0, 50, 120), knob_center, 12, 2)
+
+def clamp(value, min_value, max_value):
+    return max(min_value, min(max_value, value))
+
+def set_player_speed(value):
+    global player_speed, enemy_base_speed
+
+    player_speed = clamp(value, PLAYER_SPEED_MIN, PLAYER_SPEED_MAX)
+
+    if abs(player_speed - enemy_base_speed) > MAX_SPEED_DIFFERENCE:
+        if player_speed > enemy_base_speed:
+            enemy_base_speed = player_speed - MAX_SPEED_DIFFERENCE
+        else:
+            enemy_base_speed = player_speed + MAX_SPEED_DIFFERENCE
+
+    enemy_base_speed = clamp(enemy_base_speed, ENEMY_SPEED_MIN, ENEMY_SPEED_MAX)
+    apply_player_speed()
+    apply_enemy_speed()
+
+def set_enemy_speed(value):
+    global player_speed, enemy_base_speed
+
+    enemy_base_speed = clamp(value, ENEMY_SPEED_MIN, ENEMY_SPEED_MAX)
+
+    if abs(player_speed - enemy_base_speed) > MAX_SPEED_DIFFERENCE:
+        if enemy_base_speed > player_speed:
+            player_speed = enemy_base_speed - MAX_SPEED_DIFFERENCE
+        else:
+            player_speed = enemy_base_speed + MAX_SPEED_DIFFERENCE
+
+    player_speed = clamp(player_speed, PLAYER_SPEED_MIN, PLAYER_SPEED_MAX)
+    apply_player_speed()
+    apply_enemy_speed()
 
 def apply_player_speed():
     player.speed = player_speed
@@ -204,8 +243,8 @@ def draw_settings_panel():
     screen.blit(title, title_rect)
 
     draw_slider(music_slider, music_volume * 10, 0, 10, "Громкость музыки")
-    draw_slider(player_speed_slider, player_speed, 2, 10, "Скорость игрока")
-    draw_slider(enemy_speed_slider, enemy_base_speed, 1, 8, "Скорость врага")
+    draw_slider(player_speed_slider, player_speed, PLAYER_SPEED_MIN, PLAYER_SPEED_MAX, "Скорость игрока")
+    draw_slider(enemy_speed_slider, enemy_base_speed, ENEMY_SPEED_MIN, ENEMY_SPEED_MAX, "Скорость врага")
     draw_button(settings_close_button, "Закрыть")
 
 def draw_button(rect, text, selected=False, disabled=False):
@@ -299,12 +338,24 @@ while running:
                         pygame.mixer.music.set_volume(music_volume)
                     elif player_speed_slider.inflate(0, 28).collidepoint(mouse_pos):
                         dragging_slider = "player"
-                        player_speed = slider_value_from_mouse(mouse_pos[0], player_speed_slider, 2, 10)
-                        apply_player_speed()
+                        set_player_speed(
+                            slider_value_from_mouse(
+                                mouse_pos[0],
+                                player_speed_slider,
+                                PLAYER_SPEED_MIN,
+                                PLAYER_SPEED_MAX
+                            )
+                        )
                     elif enemy_speed_slider.inflate(0, 28).collidepoint(mouse_pos):
                         dragging_slider = "enemy"
-                        enemy_base_speed = slider_value_from_mouse(mouse_pos[0], enemy_speed_slider, 1, 8)
-                        apply_enemy_speed()
+                        set_enemy_speed(
+                            slider_value_from_mouse(
+                                mouse_pos[0],
+                                enemy_speed_slider,
+                                ENEMY_SPEED_MIN,
+                                ENEMY_SPEED_MAX
+                            )
+                        )
 
                     continue
 
@@ -368,11 +419,30 @@ while running:
                 music_volume = slider_value_from_mouse(mouse_x, music_slider, 0, 10) / 10
                 pygame.mixer.music.set_volume(music_volume)
             elif dragging_slider == "player":
-                player_speed = slider_value_from_mouse(mouse_x, player_speed_slider, 2, 10)
-                apply_player_speed()
+                set_player_speed(
+                    slider_value_from_mouse(
+                        mouse_x,
+                        player_speed_slider,
+                        PLAYER_SPEED_MIN,
+                        PLAYER_SPEED_MAX
+                    )
+                )
             elif dragging_slider == "enemy":
-                enemy_base_speed = slider_value_from_mouse(mouse_x, enemy_speed_slider, 1, 8)
-                apply_enemy_speed()
+                set_enemy_speed(
+                    slider_value_from_mouse(
+                        mouse_x,
+                        enemy_speed_slider,
+                        ENEMY_SPEED_MIN,
+                        ENEMY_SPEED_MAX
+                    )
+                )
+
+        if event.type == pygame.KEYDOWN:
+            if event.key == pygame.K_RETURN:
+                if input_name_screen and nickname.strip() != "":
+                    input_name_screen = False
+                elif game_over:
+                    restart_game()
 
         if event.type == pygame.TEXTINPUT and input_name_screen:
             if event.text.isprintable() and len(nickname) < 15:
@@ -483,49 +553,44 @@ while running:
 
     if start_screen:
         title_text = font.render("Coin Game", True, (0, 0, 0))
-        rule_1 = small_font.render("Правила игры:", True, (0, 0, 0))
-        rule_2 = small_font.render("1. Управляй синим квадратом стрелками.", True, (50, 50, 50))
-        rule_3 = small_font.render("2. Собирай жёлтые монеты, чтобы получать очки.", True, (50, 50, 50))
-        rule_4 = small_font.render(f"3. Собери {win_score} монет, чтобы выиграть.", True, (50, 50, 50))
-        rule_5 = small_font.render("4. Не касайся красного врага — это проигрыш.", True, (50, 50, 50))
-        rule_6 = small_font.render("5. Враг начнёт двигаться через 2 секунды после старта.", True, (50, 50, 50))
-        choose_text = small_font.render("Выбери цель: 1 — 10 очков, 2 — 20 очков, 3 — 50 очков.", True, (0, 0, 120))
+        title_rect = title_text.get_rect(center=(SCREEN_WIDTH // 2, 70))
+        rules = [
+            ("Правила игры:", (0, 0, 0)),
+            ("1. Управляй синим квадратом стрелками.", (50, 50, 50)),
+            ("2. Собирай жёлтые монеты, чтобы получать очки.", (50, 50, 50)),
+            (f"3. Собери {win_score} монет, чтобы выиграть.", (50, 50, 50)),
+            ("4. Не касайся красного врага — это проигрыш.", (50, 50, 50)),
+            ("5. Враг начнёт двигаться через 2 секунды после старта.", (50, 50, 50))
+        ]
         mode_text = small_font.render(
             f"Режим: {'лёгкий' if difficulty == 'easy' else 'сложный'}",
             True,
             (120, 0, 0)
         )
-
-        difficulty_text = small_font.render(
-            "Выбери режим: E — лёгкий, H — сложный.",
-            True,
-            (0, 0, 120)
-        )
-
         reset_top_text = small_font.render("Сбросить топ игроков", True, (0, 0, 0))
         reset_top_text_rect = reset_top_text.get_rect(center=reset_top_button.center)
 
-        screen.blit(title_text, (SCREEN_WIDTH // 2 - 70, 120))
-        screen.blit(rule_1, (SCREEN_WIDTH // 2 - 120, 190))
-        screen.blit(rule_2, (SCREEN_WIDTH // 2 - 220, 230))
-        screen.blit(rule_3, (SCREEN_WIDTH // 2 - 220, 260))
-        screen.blit(rule_4, (SCREEN_WIDTH // 2 - 220, 290))
-        screen.blit(rule_5, (SCREEN_WIDTH // 2 - 220, 320))
-        screen.blit(rule_6, (SCREEN_WIDTH // 2 - 220, 350))
-        screen.blit(choose_text, (SCREEN_WIDTH // 2 - 260, 390))
-        screen.blit(mode_text, (SCREEN_WIDTH // 2 - 100, 430))
-        screen.blit(difficulty_text, (SCREEN_WIDTH // 2 - 210, 465))
-        pygame.draw.rect(screen, (240, 240, 240), (0, 380, SCREEN_WIDTH, 145))
+        screen.blit(title_text, title_rect)
+
+        for i, (text, color) in enumerate(rules):
+            rule_text = small_font.render(text, True, color)
+            rule_rect = rule_text.get_rect(center=(SCREEN_WIDTH // 2, 125 + i * 30))
+            screen.blit(rule_text, rule_rect)
+
         goal_label = small_font.render("Цель", True, (0, 0, 120))
         difficulty_label = small_font.render("Режим", True, (0, 0, 120))
-        screen.blit(goal_label, (SCREEN_WIDTH // 2 - 260, 398))
-        screen.blit(difficulty_label, (SCREEN_WIDTH // 2 - 230, 448))
+        goal_label_rect = goal_label.get_rect(center=(SCREEN_WIDTH // 2, 305))
+        difficulty_label_rect = difficulty_label.get_rect(center=(SCREEN_WIDTH // 2, 385))
+        mode_text_rect = mode_text.get_rect(center=(SCREEN_WIDTH // 2, 460))
+        screen.blit(goal_label, goal_label_rect)
+        screen.blit(difficulty_label, difficulty_label_rect)
 
         for goal, button in goal_buttons.items():
             draw_button(button, str(goal), selected=win_score == goal)
 
         draw_button(difficulty_buttons["easy"], "Легкий", selected=difficulty == "easy")
         draw_button(difficulty_buttons["hard"], "Сложный", selected=difficulty == "hard")
+        screen.blit(mode_text, mode_text_rect)
         draw_button(start_game_button, "Старт")
         draw_button(settings_button, "Настройки")
 
