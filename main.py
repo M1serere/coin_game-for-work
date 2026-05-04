@@ -21,6 +21,9 @@ coin_sound = pygame.mixer.Sound(os.path.join(MUSIC_DIR, "coin_m.mp3"))
 time_sound = pygame.mixer.Sound(os.path.join(MUSIC_DIR, "time_m.mp3"))
 
 current_music = None
+music_volume = 0.6
+player_speed = 5
+enemy_base_speed = 3
 
 def play_background_music(path, loops=-1):
     global current_music
@@ -29,6 +32,7 @@ def play_background_music(path, loops=-1):
         pygame.mixer.music.stop()
         pygame.mixer.music.load(path)
         pygame.mixer.music.play(loops)
+        pygame.mixer.music.set_volume(music_volume)
         current_music = path
 
 SCREEN_WIDTH = 800
@@ -54,7 +58,7 @@ player = Player(
     x=SCREEN_WIDTH // 2 - 20,
     y=SCREEN_HEIGHT // 2 - 20,
     size=40,
-    speed=5
+    speed=player_speed
 )
 
 coin_size = 25
@@ -70,8 +74,8 @@ def create_safe_enemy(player):
             x=random.randint(0, SCREEN_WIDTH - enemy_size),
             y=random.randint(100, SCREEN_HEIGHT - enemy_size),
             size=enemy_size,
-            speed_x=3,
-            speed_y=3
+            speed_x=enemy_base_speed,
+            speed_y=enemy_base_speed
         )
 
         if not enemy.get_rect().colliderect(player.get_rect()):
@@ -127,11 +131,18 @@ start_screen = True
 game_over = False
 result_text = ""
 paused = False
+settings_open = False
+dragging_slider = None
 top_reset_message = ""
 top_reset_message_time = 0
 
-pause_button = pygame.Rect(600, 20, 80, 35)
-continue_button = pygame.Rect(690, 20, 90, 35)
+pause_button = pygame.Rect(505, 20, 80, 35)
+continue_button = pygame.Rect(595, 20, 90, 35)
+settings_button = pygame.Rect(690, 20, 100, 35)
+settings_close_button = pygame.Rect(SCREEN_WIDTH // 2 - 70, SCREEN_HEIGHT // 2 + 135, 140, 40)
+music_slider = pygame.Rect(SCREEN_WIDTH // 2 - 150, SCREEN_HEIGHT // 2 - 45, 300, 8)
+player_speed_slider = pygame.Rect(SCREEN_WIDTH // 2 - 150, SCREEN_HEIGHT // 2 + 25, 300, 8)
+enemy_speed_slider = pygame.Rect(SCREEN_WIDTH // 2 - 150, SCREEN_HEIGHT // 2 + 95, 300, 8)
 reset_top_button = pygame.Rect(SCREEN_WIDTH // 2 - 110, 535, 220, 40)
 name_continue_button = pygame.Rect(SCREEN_WIDTH // 2 + 10, SCREEN_HEIGHT // 2 + 80, 180, 40)
 name_clear_button = pygame.Rect(SCREEN_WIDTH // 2 - 190, SCREEN_HEIGHT // 2 + 80, 180, 40)
@@ -150,6 +161,52 @@ difficulty_buttons = {
 }
 
 running = True
+
+def slider_value_from_mouse(mouse_x, slider_rect, min_value, max_value):
+    position = (mouse_x - slider_rect.x) / slider_rect.width
+    position = max(0, min(1, position))
+    return min_value + position * (max_value - min_value)
+
+def draw_slider(slider_rect, value, min_value, max_value, label, suffix=""):
+    label_text = small_font.render(f"{label}: {value:.1f}{suffix}", True, (0, 0, 0))
+    screen.blit(label_text, (slider_rect.x, slider_rect.y - 32))
+
+    pygame.draw.rect(screen, (190, 190, 190), slider_rect)
+
+    position = (value - min_value) / (max_value - min_value)
+    knob_x = slider_rect.x + int(position * slider_rect.width)
+    knob_center = (knob_x, slider_rect.y + slider_rect.height // 2)
+
+    pygame.draw.circle(screen, (0, 100, 200), knob_center, 12)
+    pygame.draw.circle(screen, (0, 50, 120), knob_center, 12, 2)
+
+def apply_player_speed():
+    player.speed = player_speed
+
+def apply_enemy_speed():
+    speed = enemy_base_speed + enemy_speed_bonus
+
+    for enemy in enemies:
+        enemy.speed_x = speed if enemy.speed_x >= 0 else -speed
+        enemy.speed_y = speed if enemy.speed_y >= 0 else -speed
+
+def draw_settings_panel():
+    overlay = pygame.Surface((SCREEN_WIDTH, SCREEN_HEIGHT), pygame.SRCALPHA)
+    overlay.fill((0, 0, 0, 95))
+    screen.blit(overlay, (0, 0))
+
+    panel = pygame.Rect(SCREEN_WIDTH // 2 - 220, SCREEN_HEIGHT // 2 - 170, 440, 350)
+    pygame.draw.rect(screen, (255, 255, 255), panel)
+    pygame.draw.rect(screen, (0, 0, 0), panel, 2)
+
+    title = font.render("Настройки", True, (0, 0, 0))
+    title_rect = title.get_rect(center=(SCREEN_WIDTH // 2, panel.y + 40))
+    screen.blit(title, title_rect)
+
+    draw_slider(music_slider, music_volume * 10, 0, 10, "Громкость музыки")
+    draw_slider(player_speed_slider, player_speed, 2, 10, "Скорость игрока")
+    draw_slider(enemy_speed_slider, enemy_base_speed, 1, 8, "Скорость врага")
+    draw_button(settings_close_button, "Закрыть")
 
 def draw_button(rect, text, selected=False, disabled=False):
     if disabled:
@@ -195,7 +252,7 @@ def restart_game():
         x=SCREEN_WIDTH // 2 - 20,
         y=SCREEN_HEIGHT // 2 - 20,
         size=40,
-        speed=5
+        speed=player_speed
     )
 
     coin_x = random.randint(0, SCREEN_WIDTH - coin_size)
@@ -229,6 +286,32 @@ while running:
             running = False
 
         if event.type == pygame.MOUSEBUTTONDOWN:
+            if event.button == 1:
+                mouse_pos = event.pos
+
+                if settings_open:
+                    if settings_close_button.collidepoint(mouse_pos):
+                        settings_open = False
+                        dragging_slider = None
+                    elif music_slider.inflate(0, 28).collidepoint(mouse_pos):
+                        dragging_slider = "music"
+                        music_volume = slider_value_from_mouse(mouse_pos[0], music_slider, 0, 10) / 10
+                        pygame.mixer.music.set_volume(music_volume)
+                    elif player_speed_slider.inflate(0, 28).collidepoint(mouse_pos):
+                        dragging_slider = "player"
+                        player_speed = slider_value_from_mouse(mouse_pos[0], player_speed_slider, 2, 10)
+                        apply_player_speed()
+                    elif enemy_speed_slider.inflate(0, 28).collidepoint(mouse_pos):
+                        dragging_slider = "enemy"
+                        enemy_base_speed = slider_value_from_mouse(mouse_pos[0], enemy_speed_slider, 1, 8)
+                        apply_enemy_speed()
+
+                    continue
+
+                if not input_name_screen and start_screen and settings_button.collidepoint(mouse_pos):
+                    settings_open = True
+                    continue
+
             if event.button == 1 and input_name_screen:
                 mouse_pos = event.pos
 
@@ -274,11 +357,28 @@ while running:
                 if restart_button.collidepoint(mouse_pos):
                     restart_game()
 
+        if event.type == pygame.MOUSEBUTTONUP:
+            if event.button == 1:
+                dragging_slider = None
+
+        if event.type == pygame.MOUSEMOTION and settings_open and dragging_slider is not None:
+            mouse_x = event.pos[0]
+
+            if dragging_slider == "music":
+                music_volume = slider_value_from_mouse(mouse_x, music_slider, 0, 10) / 10
+                pygame.mixer.music.set_volume(music_volume)
+            elif dragging_slider == "player":
+                player_speed = slider_value_from_mouse(mouse_x, player_speed_slider, 2, 10)
+                apply_player_speed()
+            elif dragging_slider == "enemy":
+                enemy_base_speed = slider_value_from_mouse(mouse_x, enemy_speed_slider, 1, 8)
+                apply_enemy_speed()
+
         if event.type == pygame.TEXTINPUT and input_name_screen:
             if event.text.isprintable() and len(nickname) < 15:
                 nickname += event.text
 
-    if not start_screen and not game_over and not paused:
+    if not start_screen and not game_over and not paused and not settings_open:
         game_elapsed_time += frame_time
         keys = pygame.key.get_pressed()
         player.move(keys, SCREEN_WIDTH, SCREEN_HEIGHT)
@@ -333,7 +433,7 @@ while running:
     coin_rect = pygame.Rect(coin_x, coin_y, coin_size, coin_size)
     #enemy_rect = enemy.get_rect()
 
-    if not start_screen and not game_over and not paused and player.get_rect().colliderect(coin_rect):
+    if not start_screen and not game_over and not paused and not settings_open and player.get_rect().colliderect(coin_rect):
         score += 1
         coin_sound.play()
 
@@ -347,7 +447,7 @@ while running:
             coin_x = random.randint(0, SCREEN_WIDTH - coin_size)
             coin_y = random.randint(100, SCREEN_HEIGHT - coin_size)
 
-    if not start_screen and not game_over and not paused:
+    if not start_screen and not game_over and not paused and not settings_open:
         for enemy in enemies:
             if player.get_rect().colliderect(enemy.get_rect()):
                 game_over = True
@@ -427,6 +527,7 @@ while running:
         draw_button(difficulty_buttons["easy"], "Легкий", selected=difficulty == "easy")
         draw_button(difficulty_buttons["hard"], "Сложный", selected=difficulty == "hard")
         draw_button(start_game_button, "Старт")
+        draw_button(settings_button, "Настройки")
 
         pygame.draw.rect(screen, (255, 255, 255), reset_top_button)
         pygame.draw.rect(screen, (180, 0, 0), reset_top_button, 2)
@@ -436,6 +537,9 @@ while running:
             reset_message = small_font.render(top_reset_message, True, (0, 120, 0))
             reset_message_rect = reset_message.get_rect(center=(SCREEN_WIDTH // 2, 585))
             screen.blit(reset_message, reset_message_rect)
+
+        if settings_open:
+            draw_settings_panel()
 
         pygame.display.update()
         continue
