@@ -9,7 +9,7 @@ from enemy import Enemy
 pygame.init()
 db = Database()
 
-nickname = input("Введите ваш никнейм: ")
+#nickname = input("Введите ваш никнейм: ")
 
 SCREEN_WIDTH = 800
 SCREEN_HEIGHT = 600
@@ -52,6 +52,9 @@ win_score = 10
 enemy_start_delay = 2000
 game_start_time = 0
 
+input_name_screen = True
+nickname = ""
+
 start_screen = True
 
 game_over = False
@@ -60,7 +63,7 @@ result_text = ""
 running = True
 
 def restart_game():
-    global player, coin_x, coin_y, enemy, score, game_over, result_text, start_screen, game_start_time
+    global player, coin_x, coin_y, enemy, score, game_over, result_text, start_screen, game_start_time    
     player = Player(
         x=SCREEN_WIDTH // 2,
         y=SCREEN_HEIGHT // 2,
@@ -93,6 +96,19 @@ while running:
             running = False
 
         if event.type == pygame.KEYDOWN:
+            if input_name_screen:
+                if event.key == pygame.K_RETURN and nickname.strip() != "":
+                    input_name_screen = False
+
+                elif event.key == pygame.K_BACKSPACE:
+                    nickname = nickname[:-1]
+
+                else:
+                    if len(nickname) < 15:
+                        nickname += event.unicode
+
+                continue
+
             if start_screen:
                 if event.key == pygame.K_1:
                     win_score = 10
@@ -141,6 +157,29 @@ while running:
 
     screen.fill((240, 240, 240))
 
+    if input_name_screen:
+        title_text = font.render("Введите ваш никнейм", True, (0, 0, 0))
+
+        input_box = pygame.Rect(
+            SCREEN_WIDTH // 2 - 150,
+            SCREEN_HEIGHT // 2 - 30,
+            300,
+            60
+        )
+
+        pygame.draw.rect(screen, (255, 255, 255), input_box)
+        pygame.draw.rect(screen, (0, 0, 0), input_box, 2)
+
+        name_text = font.render(nickname, True, (0, 0, 0))
+        hint_text = small_font.render("Нажмите ENTER, чтобы продолжить", True, (80, 80, 80))
+
+        screen.blit(title_text, (SCREEN_WIDTH // 2 - 145, SCREEN_HEIGHT // 2 - 110))
+        screen.blit(name_text, (input_box.x + 15, input_box.y + 15))
+        screen.blit(hint_text, (SCREEN_WIDTH // 2 - 170, SCREEN_HEIGHT // 2 + 50))
+
+        pygame.display.update()
+        continue
+
     if start_screen:
         title_text = font.render("Coin Game", True, (0, 0, 0))
         rule_1 = small_font.render("Правила игры:", True, (0, 0, 0))
@@ -183,11 +222,32 @@ while running:
         (50, 50, 50)
     )
 
+    pygame.draw.line(screen, (0, 0, 0), (0, 100), (SCREEN_WIDTH, 100), 2)
+
     screen.blit(score_text, (20, 20))
     screen.blit(help_text, (20, 60))
 
     if game_over:
         top_players = db.get_top_players()
+
+        card_width = 420
+        card_height = 320
+
+        card_x = SCREEN_WIDTH // 2 - card_width // 2
+        card_y = SCREEN_HEIGHT // 2 - card_height // 2
+
+        pygame.draw.rect(
+            screen,
+            (255, 255, 255),
+            (card_x, card_y, card_width, card_height)
+        )
+
+        pygame.draw.rect(
+            screen,
+            (0, 0, 0),
+            (card_x, card_y, card_width, card_height),
+            2
+        )
 
         if result_text == "Ты выиграл!":
             result_color = (0, 150, 0)
@@ -195,26 +255,28 @@ while running:
             result_color = (200, 0, 0)
 
         result_surface = font.render(result_text, True, result_color)
+        result_rect = result_surface.get_rect(center=(SCREEN_WIDTH // 2, card_y + 40))
+        screen.blit(result_surface, result_rect)
+
         restart_surface = small_font.render(
-            "Нажми R, чтобы сыграть снова, или закрой окно.",
+            "Нажми R, чтобы сыграть снова",
             True,
             (50, 50, 50)
         )
-
-        screen.blit(result_surface, (SCREEN_WIDTH // 2 - 80, SCREEN_HEIGHT // 2 - 30))
-        screen.blit(restart_surface, (SCREEN_WIDTH // 2 - 160, SCREEN_HEIGHT // 2 + 10))
-
-        y_offset = SCREEN_HEIGHT // 2 + 60
+        restart_rect = restart_surface.get_rect(center=(SCREEN_WIDTH // 2, card_y + 80))
+        screen.blit(restart_surface, restart_rect)
 
         title = small_font.render("ТОП-5 игроков:", True, (0, 0, 0))
-        screen.blit(title, (SCREEN_WIDTH // 2 - 100, y_offset))
+        title_rect = title.get_rect(center=(SCREEN_WIDTH // 2, card_y + 125))
+        screen.blit(title, title_rect)
 
-        y_offset += 30
+        y_offset = card_y + 160
 
         for i, (name, sc) in enumerate(top_players):
-            text = small_font.render(f"{i + 1}. {name} - {sc}", True, (0, 0, 0))
-            screen.blit(text, (SCREEN_WIDTH // 2 - 100, y_offset))
-            y_offset += 25
+            text = small_font.render(f"{i + 1}. {name} — {sc}", True, (0, 0, 0))
+            text_rect = text.get_rect(center=(SCREEN_WIDTH // 2, y_offset))
+            screen.blit(text, text_rect)
+            y_offset += 28
 
     pygame.display.update()
 
