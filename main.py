@@ -1,4 +1,5 @@
 import pygame
+import random
 from player import Player
 
 
@@ -24,6 +25,11 @@ player = Player(
     speed=5
 )
 
+coin_size = 25
+
+coin_x = random.randint(0, SCREEN_WIDTH - coin_size)
+coin_y = random.randint(100, SCREEN_HEIGHT - coin_size)
+
 score = 0
 running = True
 
@@ -37,13 +43,28 @@ while running:
     keys = pygame.key.get_pressed()
     player.move(keys, SCREEN_WIDTH, SCREEN_HEIGHT)
 
+    coin_rect = pygame.Rect(coin_x, coin_y, coin_size, coin_size)
+
+    if player.get_rect().colliderect(coin_rect):
+        score += 1
+        coin_x = random.randint(0, SCREEN_WIDTH - coin_size)
+        coin_y = random.randint(100, SCREEN_HEIGHT - coin_size)
+
     screen.fill((240, 240, 240))
 
-    player.draw(screen)
+    pygame.draw.circle(
+        screen,
+        (255, 200, 0),
+        (coin_x + coin_size // 2, coin_y + coin_size // 2),
+        coin_size // 2
+    )
 
+
+    player.draw(screen)
+    #pygame.draw.rect(screen, (255, 215, 0), coin_rect)
     score_text = font.render(f"Игрок: {nickname} | Очки: {score}", True, (0, 0, 0))
     help_text = small_font.render(
-        "Управляй синим квадратом с помощью стрелок",
+        "Собирай жёлтые монетки. Каждая монетка даёт 1 очко.",
         True,
         (50, 50, 50)
     )
