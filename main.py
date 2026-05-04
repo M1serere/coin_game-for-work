@@ -1,9 +1,11 @@
 import pygame
 import random
 from player import Player
+from database import Database
 
 
 pygame.init()
+db = Database()
 
 nickname = input("Введите ваш никнейм: ")
 
@@ -64,6 +66,7 @@ while running:
         if score >= win_score:
             game_over = True
             result_text = "Ты выиграл!"
+            db.save_score(nickname, score)
         else:
             coin_x = random.randint(0, SCREEN_WIDTH - coin_size)
             coin_y = random.randint(100, SCREEN_HEIGHT - coin_size)
@@ -71,6 +74,7 @@ while running:
     if not game_over and player.get_rect().colliderect(enemy_rect):
         game_over = True
         result_text = "Ты проиграл!"
+        db.save_score(nickname, score)
 
     screen.fill((240, 240, 240))
 
@@ -88,7 +92,7 @@ while running:
     )
 
     player.draw(screen)
-    #pygame.draw.rect(screen, (255, 215, 0), coin_rect)
+
     score_text = font.render(f"Игрок: {nickname} | Очки: {score}", True, (0, 0, 0))
     help_text = small_font.render(
         "Собери 10 монет, чтобы выиграть.",
@@ -100,6 +104,8 @@ while running:
     screen.blit(help_text, (20, 60))
 
     if game_over:
+        top_players = db.get_top_players()
+
         if result_text == "Ты выиграл!":
             result_color = (0, 150, 0)
         else:
@@ -115,7 +121,17 @@ while running:
         screen.blit(result_surface, (SCREEN_WIDTH // 2 - 80, SCREEN_HEIGHT // 2 - 30))
         screen.blit(restart_surface, (SCREEN_WIDTH // 2 - 160, SCREEN_HEIGHT // 2 + 10))
 
-    pygame.display.update()
+        y_offset = SCREEN_HEIGHT // 2 + 60
+
+        title = small_font.render("ТОП-5 игроков:", True, (0, 0, 0))
+        screen.blit(title, (SCREEN_WIDTH // 2 - 100, y_offset))
+
+        y_offset += 30
+
+        for i, (name, sc) in enumerate(top_players):
+            text = small_font.render(f"{i + 1}. {name} - {sc}", True, (0, 0, 0))
+            screen.blit(text, (SCREEN_WIDTH // 2 - 100, y_offset))
+            y_offset += 25
 
     pygame.display.update()
 
