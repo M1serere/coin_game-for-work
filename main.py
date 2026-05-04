@@ -12,6 +12,7 @@ pygame.mixer.init()
 db = Database()
 
 MUSIC_DIR = "music"
+ASSETS_DIR = "assets"
 
 menu_music = os.path.join(MUSIC_DIR, "menu_m.mp3")
 play_music = os.path.join(MUSIC_DIR, "play_m.mp3")
@@ -46,6 +47,9 @@ SCREEN_HEIGHT = 600
 
 screen = pygame.display.set_mode((SCREEN_WIDTH, SCREEN_HEIGHT))
 pygame.display.set_caption("Coin Game")
+
+game_background = pygame.image.load(os.path.join(ASSETS_DIR, "fon_g.jpg")).convert()
+game_background = pygame.transform.scale(game_background, (SCREEN_WIDTH, SCREEN_HEIGHT))
 
 try:
     hwnd = pygame.display.get_wm_info()["window"]
@@ -141,6 +145,7 @@ settings_open = False
 dragging_slider = None
 top_reset_message = ""
 top_reset_message_time = 0
+focused_menu_index = 6
 
 pause_button = pygame.Rect(620, 20, 75, 35)
 continue_button = pygame.Rect(700, 20, 90, 35)
@@ -168,6 +173,73 @@ difficulty_buttons = {
 }
 
 running = True
+
+def get_menu_buttons():
+    buttons = [("settings", None, settings_button)]
+    buttons.extend(("goal", goal, button) for goal, button in goal_buttons.items())
+    buttons.extend(("difficulty", mode, button) for mode, button in difficulty_buttons.items())
+    buttons.extend([
+        ("start", None, start_game_button),
+        ("reset_top", None, reset_top_button)
+    ])
+    return buttons
+
+def is_menu_button_focused(kind, value=None):
+    menu_buttons = get_menu_buttons()
+    focused_kind, focused_value, _ = menu_buttons[focused_menu_index % len(menu_buttons)]
+    return focused_kind == kind and focused_value == value
+
+def move_menu_focus(direction):
+    global focused_menu_index
+
+    focused_menu_index = (focused_menu_index + direction) % len(get_menu_buttons())
+
+def move_menu_focus_by_direction(dx, dy):
+    global focused_menu_index
+
+    menu_buttons = get_menu_buttons()
+    _, _, current_rect = menu_buttons[focused_menu_index % len(menu_buttons)]
+    current_x, current_y = current_rect.center
+    candidates = []
+
+    for index, (_, _, rect) in enumerate(menu_buttons):
+        if index == focused_menu_index:
+            continue
+
+        target_x, target_y = rect.center
+        delta_x = target_x - current_x
+        delta_y = target_y - current_y
+
+        if dx != 0 and delta_x * dx <= 0:
+            continue
+
+        if dy != 0 and delta_y * dy <= 0:
+            continue
+
+        primary_distance = abs(delta_x) if dx != 0 else abs(delta_y)
+        secondary_distance = abs(delta_y) if dx != 0 else abs(delta_x)
+        candidates.append((primary_distance, secondary_distance, index))
+
+    if candidates:
+        focused_menu_index = min(candidates)[2]
+
+def activate_focused_menu_button(current_time):
+    global settings_open, win_score, difficulty, top_reset_message, top_reset_message_time
+
+    kind, value, _ = get_menu_buttons()[focused_menu_index % len(get_menu_buttons())]
+
+    if kind == "settings":
+        settings_open = True
+    elif kind == "goal":
+        win_score = value
+    elif kind == "difficulty":
+        difficulty = value
+    elif kind == "start":
+        start_game(current_time)
+    elif kind == "reset_top":
+        db.clear_top_players()
+        top_reset_message = "РўРѕРї РёРіСЂРѕРєРѕРІ РѕС‡РёС‰РµРЅ"
+        top_reset_message_time = current_time
 
 def slider_value_from_mouse(mouse_x, slider_rect, min_value, max_value):
     position = (mouse_x - slider_rect.x) / slider_rect.width
@@ -246,9 +318,9 @@ def draw_settings_panel():
     draw_slider(music_slider, music_volume * 10, 0, 10, "Громкость музыки")
     draw_slider(player_speed_slider, player_speed, PLAYER_SPEED_MIN, PLAYER_SPEED_MAX, "Скорость игрока")
     draw_slider(enemy_speed_slider, enemy_base_speed, ENEMY_SPEED_MIN, ENEMY_SPEED_MAX, "Скорость врага")
-    draw_button(settings_close_button, "Закрыть")
+    draw_button(settings_close_button, "Закрыть", focused=True)
 
-def draw_button(rect, text, selected=False, disabled=False):
+def draw_button(rect, text, selected=False, disabled=False, focused=False):
     if disabled:
         fill_color = (220, 220, 220)
         border_color = (150, 150, 150)
@@ -265,9 +337,16 @@ def draw_button(rect, text, selected=False, disabled=False):
     pygame.draw.rect(screen, fill_color, rect)
     pygame.draw.rect(screen, border_color, rect, 2)
 
+    if focused and not disabled:
+        focus_rect = rect.inflate(8, 8)
+        pygame.draw.rect(screen, (255, 170, 0), focus_rect, 3)
+
     text_surface = small_font.render(text, True, text_color)
     text_rect = text_surface.get_rect(center=rect.center)
     screen.blit(text_surface, text_rect)
+
+def draw_focus_rect(rect):
+    pygame.draw.rect(screen, (255, 170, 0), rect.inflate(8, 8), 3)
 
 def start_game(start_time):
     global start_screen, game_start_time, game_elapsed_time, last_frame_time
@@ -453,11 +532,36 @@ while running:
                 )
 
         if event.type == pygame.KEYDOWN:
+            if settings_open:
+                if event.key in (pygame.K_RETURN, pygame.K_SPACE):
+                    settings_open = False
+                    dragging_slider = None
+                    continue
+
+            if not input_name_screen and start_screen and not settings_open:
+                if event.key == pygame.K_DOWN:
+                    move_menu_focus_by_direction(0, 1)
+                    continue
+
+                if event.key == pygame.K_UP:
+                    move_menu_focus_by_direction(0, -1)
+                    continue
+
+                if event.key == pygame.K_RIGHT:
+                    move_menu_focus_by_direction(1, 0)
+                    continue
+
+                if event.key == pygame.K_LEFT:
+                    move_menu_focus_by_direction(-1, 0)
+                    continue
+
+                if event.key in (pygame.K_RETURN, pygame.K_SPACE):
+                    activate_focused_menu_button(current_time)
+                    continue
+
             if event.key == pygame.K_RETURN:
                 if input_name_screen and nickname.strip() != "":
                     input_name_screen = False
-                elif not input_name_screen and start_screen and not settings_open:
-                    start_game(current_time)
                 elif game_over:
                     start_new_game(current_time)
 
@@ -603,7 +707,12 @@ while running:
         screen.blit(difficulty_label, difficulty_label_rect)
 
         for goal, button in goal_buttons.items():
-            draw_button(button, str(goal), selected=win_score == goal)
+            draw_button(
+                button,
+                str(goal),
+                selected=win_score == goal,
+                focused=is_menu_button_focused("goal", goal)
+            )
 
         draw_button(difficulty_buttons["easy"], "Легкий", selected=difficulty == "easy")
         draw_button(difficulty_buttons["hard"], "Сложный", selected=difficulty == "hard")
@@ -614,6 +723,7 @@ while running:
         pygame.draw.rect(screen, (255, 255, 255), reset_top_button)
         pygame.draw.rect(screen, (180, 0, 0), reset_top_button, 2)
         screen.blit(reset_top_text, reset_top_text_rect)
+        draw_focus_rect(get_menu_buttons()[focused_menu_index % len(get_menu_buttons())][2])
 
         if top_reset_message and current_time - top_reset_message_time < 2000:
             reset_message = small_font.render(top_reset_message, True, (0, 120, 0))
@@ -625,6 +735,8 @@ while running:
 
         pygame.display.update()
         continue
+
+    screen.blit(game_background, (0, 0))
 
     pygame.draw.circle(
         screen,
