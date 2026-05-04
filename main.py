@@ -30,6 +30,11 @@ coin_size = 25
 coin_x = random.randint(0, SCREEN_WIDTH - coin_size)
 coin_y = random.randint(100, SCREEN_HEIGHT - coin_size)
 
+enemy_size = 45
+
+enemy_x = random.randint(0, SCREEN_WIDTH - enemy_size)
+enemy_y = random.randint(100, SCREEN_HEIGHT - enemy_size)
+
 score = 0
 win_score = 10
 
@@ -51,6 +56,7 @@ while running:
         player.move(keys, SCREEN_WIDTH, SCREEN_HEIGHT)
 
     coin_rect = pygame.Rect(coin_x, coin_y, coin_size, coin_size)
+    enemy_rect = pygame.Rect(enemy_x, enemy_y, enemy_size, enemy_size)
 
     if not game_over and player.get_rect().colliderect(coin_rect):
         score += 1
@@ -62,6 +68,10 @@ while running:
             coin_x = random.randint(0, SCREEN_WIDTH - coin_size)
             coin_y = random.randint(100, SCREEN_HEIGHT - coin_size)
 
+    if not game_over and player.get_rect().colliderect(enemy_rect):
+        game_over = True
+        result_text = "Ты проиграл!"
+
     screen.fill((240, 240, 240))
 
     pygame.draw.circle(
@@ -71,6 +81,11 @@ while running:
         coin_size // 2
     )
 
+    pygame.draw.rect(
+        screen,
+        (220, 0, 0),
+        (enemy_x, enemy_y, enemy_size, enemy_size)
+    )
 
     player.draw(screen)
     #pygame.draw.rect(screen, (255, 215, 0), coin_rect)
@@ -85,9 +100,14 @@ while running:
     screen.blit(help_text, (20, 60))
 
     if game_over:
-        result_surface = font.render(result_text, True, (0, 150, 0))
+        if result_text == "Ты выиграл!":
+            result_color = (0, 150, 0)
+        else:
+            result_color = (200, 0, 0)
+
+        result_surface = font.render(result_text, True, result_color)
         restart_surface = small_font.render(
-            "Закрой окно, чтобы завершить игру.",
+            "Собери 10 монет и не касайся красного врага.",
             True,
             (50, 50, 50)
         )
