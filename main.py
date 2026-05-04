@@ -1,15 +1,34 @@
 import pygame
 import random
 import ctypes
+import os
 from player import Player
 from database import Database
 from enemy import Enemy
 
-
 pygame.init()
+pygame.mixer.init()
+
 db = Database()
 
-#nickname = input("Введите ваш никнейм: ")
+MUSIC_DIR = "music"
+
+menu_music = os.path.join(MUSIC_DIR, "menu_m.mp3")
+play_music = os.path.join(MUSIC_DIR, "play_m.mp3")
+win_music = os.path.join(MUSIC_DIR, "win_m.mp3")
+lose_music = os.path.join(MUSIC_DIR, "lose_m.mp3")
+coin_sound = pygame.mixer.Sound(os.path.join(MUSIC_DIR, "coin_m.mp3"))
+
+current_music = None
+
+def play_background_music(path, loops=-1):
+    global current_music
+
+    if current_music != path:
+        pygame.mixer.music.stop()
+        pygame.mixer.music.load(path)
+        pygame.mixer.music.play(loops)
+        current_music = path
 
 SCREEN_WIDTH = 800
 SCREEN_HEIGHT = 600
@@ -27,6 +46,8 @@ clock = pygame.time.Clock()
 
 font = pygame.font.SysFont("Arial", 28)
 small_font = pygame.font.SysFont("Arial", 22)
+
+play_background_music(menu_music)
 
 player = Player(
     x=SCREEN_WIDTH // 2 - 20,
@@ -92,6 +113,8 @@ def restart_game():
     start_screen = True
     game_start_time = 0
 
+    play_background_music(menu_music)
+
 while running:
     clock.tick(60)
 
@@ -126,6 +149,7 @@ while running:
                 if event.key == pygame.K_RETURN:
                     start_screen = False
                     game_start_time = pygame.time.get_ticks()
+                    play_background_music(play_music)
 
             if game_over and event.key == pygame.K_r:
                 restart_game()
@@ -145,11 +169,13 @@ while running:
 
     if not start_screen and not game_over and player.get_rect().colliderect(coin_rect):
         score += 1
+        coin_sound.play()
 
         if score >= win_score:
             game_over = True
             result_text = "Ты выиграл!"
             db.save_score(nickname, score)
+            play_background_music(win_music, loops=0)
         else:
             coin_x = random.randint(0, SCREEN_WIDTH - coin_size)
             coin_y = random.randint(100, SCREEN_HEIGHT - coin_size)
@@ -158,6 +184,7 @@ while running:
         game_over = True
         result_text = "Ты проиграл!"
         db.save_score(nickname, score)
+        play_background_music(lose_music, loops=0)
 
     screen.fill((240, 240, 240))
 
