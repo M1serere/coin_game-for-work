@@ -90,11 +90,15 @@ start_screen = True
 
 game_over = False
 result_text = ""
+paused = False
+
+pause_button = pygame.Rect(600, 20, 80, 35)
+continue_button = pygame.Rect(690, 20, 90, 35)
 
 running = True
 
 def restart_game():
-    global player, coin_x, coin_y, enemy, score, game_over, result_text, start_screen, game_start_time    
+    global player, coin_x, coin_y, enemy, score, game_over, result_text, start_screen, game_start_time, paused    
     player = Player(
         x=SCREEN_WIDTH // 2,
         y=SCREEN_HEIGHT // 2,
@@ -114,6 +118,7 @@ def restart_game():
     game_start_time = 0
 
     play_background_music(menu_music)
+    paused = False
 
 while running:
     clock.tick(60)
@@ -121,6 +126,18 @@ while running:
     for event in pygame.event.get():
         if event.type == pygame.QUIT:
             running = False
+
+        if event.type == pygame.MOUSEBUTTONDOWN:
+            if event.button == 1 and not input_name_screen and not start_screen and not game_over:
+                mouse_pos = event.pos
+
+                if pause_button.collidepoint(mouse_pos):
+                    paused = True
+                    pygame.mixer.music.pause()
+
+                if continue_button.collidepoint(mouse_pos):
+                    paused = False
+                    pygame.mixer.music.unpause()
 
         if event.type == pygame.KEYDOWN:
             if input_name_screen:
@@ -156,7 +173,7 @@ while running:
 
     keys = pygame.key.get_pressed()
 
-    if not start_screen and not game_over:
+    if not start_screen and not game_over and not paused:
         player.move(keys, SCREEN_WIDTH, SCREEN_HEIGHT)
 
         current_time = pygame.time.get_ticks()
@@ -167,7 +184,7 @@ while running:
     coin_rect = pygame.Rect(coin_x, coin_y, coin_size, coin_size)
     enemy_rect = enemy.get_rect()
 
-    if not start_screen and not game_over and player.get_rect().colliderect(coin_rect):
+    if not start_screen and not game_over and not paused and player.get_rect().colliderect(coin_rect):
         score += 1
         coin_sound.play()
 
@@ -180,7 +197,7 @@ while running:
             coin_x = random.randint(0, SCREEN_WIDTH - coin_size)
             coin_y = random.randint(100, SCREEN_HEIGHT - coin_size)
 
-    if not start_screen and not game_over and player.get_rect().colliderect(enemy_rect):
+    if not start_screen and not game_over and not paused and player.get_rect().colliderect(enemy_rect):
         game_over = True
         result_text = "Ты проиграл!"
         db.save_score(nickname, score)
@@ -257,6 +274,25 @@ while running:
 
     screen.blit(score_text, (20, 20))
     screen.blit(help_text, (20, 60))
+
+    pygame.draw.rect(screen, (255, 255, 255), pause_button)
+    pygame.draw.rect(screen, (0, 0, 0), pause_button, 2)
+
+    pause_text = small_font.render("Пауза", True, (0, 0, 0))
+    pause_text_rect = pause_text.get_rect(center=pause_button.center)
+    screen.blit(pause_text, pause_text_rect)
+
+    pygame.draw.rect(screen, (255, 255, 255), continue_button)
+    pygame.draw.rect(screen, (0, 0, 0), continue_button, 2)
+
+    continue_text = small_font.render("Дальше", True, (0, 0, 0))
+    continue_text_rect = continue_text.get_rect(center=continue_button.center)
+    screen.blit(continue_text, continue_text_rect)
+
+    if paused:
+        pause_message = font.render("ПАУЗА", True, (0, 0, 0))
+        pause_rect = pause_message.get_rect(center=(SCREEN_WIDTH // 2, SCREEN_HEIGHT // 2))
+        screen.blit(pause_message, pause_rect)
 
     if game_over:
         top_players = db.get_top_players()
