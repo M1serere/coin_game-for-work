@@ -127,9 +127,12 @@ start_screen = True
 game_over = False
 result_text = ""
 paused = False
+top_reset_message = ""
+top_reset_message_time = 0
 
 pause_button = pygame.Rect(600, 20, 80, 35)
 continue_button = pygame.Rect(690, 20, 90, 35)
+reset_top_button = pygame.Rect(SCREEN_WIDTH // 2 - 110, 535, 220, 40)
 
 running = True
 
@@ -176,6 +179,14 @@ while running:
             running = False
 
         if event.type == pygame.MOUSEBUTTONDOWN:
+            if event.button == 1 and not input_name_screen and start_screen:
+                mouse_pos = event.pos
+
+                if reset_top_button.collidepoint(mouse_pos):
+                    db.clear_top_players()
+                    top_reset_message = "Топ игроков очищен"
+                    top_reset_message_time = current_time
+
             if event.button == 1 and not input_name_screen and not start_screen and not game_over:
                 mouse_pos = event.pos
 
@@ -359,6 +370,9 @@ while running:
             (0, 0, 120)
         )
 
+        reset_top_text = small_font.render("Сбросить топ игроков", True, (0, 0, 0))
+        reset_top_text_rect = reset_top_text.get_rect(center=reset_top_button.center)
+
         screen.blit(title_text, (SCREEN_WIDTH // 2 - 70, 120))
         screen.blit(rule_1, (SCREEN_WIDTH // 2 - 120, 190))
         screen.blit(rule_2, (SCREEN_WIDTH // 2 - 220, 230))
@@ -369,7 +383,16 @@ while running:
         screen.blit(choose_text, (SCREEN_WIDTH // 2 - 260, 390))
         screen.blit(mode_text, (SCREEN_WIDTH // 2 - 100, 430))
         screen.blit(difficulty_text, (SCREEN_WIDTH // 2 - 210, 465))
-        screen.blit(start_text, (SCREEN_WIDTH // 2 - 170, 515))
+        screen.blit(start_text, (SCREEN_WIDTH // 2 - 170, 500))
+
+        pygame.draw.rect(screen, (255, 255, 255), reset_top_button)
+        pygame.draw.rect(screen, (180, 0, 0), reset_top_button, 2)
+        screen.blit(reset_top_text, reset_top_text_rect)
+
+        if top_reset_message and current_time - top_reset_message_time < 2000:
+            reset_message = small_font.render(top_reset_message, True, (0, 120, 0))
+            reset_message_rect = reset_message.get_rect(center=(SCREEN_WIDTH // 2, 585))
+            screen.blit(reset_message, reset_message_rect)
 
         pygame.display.update()
         continue

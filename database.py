@@ -32,3 +32,8 @@ class Database:
             LIMIT 5
         """)
         return self.cursor.fetchall()
+
+    def clear_top_players(self):
+        self.cursor.execute("DELETE FROM players")
+        self.cursor.execute("DELETE FROM sqlite_sequence WHERE name = ?", ("players",))
+        self.conn.commit()
