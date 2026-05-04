@@ -49,6 +49,8 @@ enemy = Enemy(
 )
 score = 0
 win_score = 10
+enemy_start_delay = 2000
+game_start_time = 0
 
 start_screen = True
 
@@ -58,8 +60,7 @@ result_text = ""
 running = True
 
 def restart_game():
-    global player, coin_x, coin_y, enemy, score, game_over, result_text, start_screen
-
+    global player, coin_x, coin_y, enemy, score, game_over, result_text, start_screen, game_start_time
     player = Player(
         x=SCREEN_WIDTH // 2,
         y=SCREEN_HEIGHT // 2,
@@ -82,7 +83,8 @@ def restart_game():
     game_over = False
     result_text = ""
     start_screen = True
-    
+    game_start_time = 0
+
 while running:
     clock.tick(60)
 
@@ -91,8 +93,19 @@ while running:
             running = False
 
         if event.type == pygame.KEYDOWN:
-            if start_screen and event.key == pygame.K_RETURN:
-                start_screen = False
+            if start_screen:
+                if event.key == pygame.K_1:
+                    win_score = 10
+
+                if event.key == pygame.K_2:
+                    win_score = 20
+
+                if event.key == pygame.K_3:
+                    win_score = 50
+
+                if event.key == pygame.K_RETURN:
+                    start_screen = False
+                    game_start_time = pygame.time.get_ticks()
 
             if game_over and event.key == pygame.K_r:
                 restart_game()
@@ -101,7 +114,11 @@ while running:
 
     if not start_screen and not game_over:
         player.move(keys, SCREEN_WIDTH, SCREEN_HEIGHT)
-        enemy.move(SCREEN_WIDTH, SCREEN_HEIGHT)
+
+        current_time = pygame.time.get_ticks()
+
+        if current_time - game_start_time >= enemy_start_delay:
+            enemy.move(SCREEN_WIDTH, SCREEN_HEIGHT)
 
     coin_rect = pygame.Rect(coin_x, coin_y, coin_size, coin_size)
     enemy_rect = enemy.get_rect()
@@ -129,8 +146,10 @@ while running:
         rule_1 = small_font.render("Правила игры:", True, (0, 0, 0))
         rule_2 = small_font.render("1. Управляй синим квадратом стрелками.", True, (50, 50, 50))
         rule_3 = small_font.render("2. Собирай жёлтые монеты, чтобы получать очки.", True, (50, 50, 50))
-        rule_4 = small_font.render("3. Собери 10 монет, чтобы выиграть.", True, (50, 50, 50))
+        rule_4 = small_font.render(f"3. Собери {win_score} монет, чтобы выиграть.", True, (50, 50, 50))
         rule_5 = small_font.render("4. Не касайся красного врага — это проигрыш.", True, (50, 50, 50))
+        rule_6 = small_font.render("5. Враг начнёт двигаться через 2 секунды после старта.", True, (50, 50, 50))
+        choose_text = small_font.render("Выбери цель: 1 — 10 очков, 2 — 20 очков, 3 — 50 очков.", True, (0, 0, 120))
         start_text = small_font.render("Нажми ENTER, чтобы начать игру.", True, (0, 100, 0))
 
         screen.blit(title_text, (SCREEN_WIDTH // 2 - 70, 120))
@@ -139,7 +158,9 @@ while running:
         screen.blit(rule_3, (SCREEN_WIDTH // 2 - 220, 260))
         screen.blit(rule_4, (SCREEN_WIDTH // 2 - 220, 290))
         screen.blit(rule_5, (SCREEN_WIDTH // 2 - 220, 320))
-        screen.blit(start_text, (SCREEN_WIDTH // 2 - 170, 390))
+        screen.blit(rule_6, (SCREEN_WIDTH // 2 - 220, 350))
+        screen.blit(choose_text, (SCREEN_WIDTH // 2 - 260, 390))
+        screen.blit(start_text, (SCREEN_WIDTH // 2 - 170, 430))
 
         pygame.display.update()
         continue
@@ -157,7 +178,7 @@ while running:
 
     score_text = font.render(f"Игрок: {nickname} | Очки: {score}", True, (0, 0, 0))
     help_text = small_font.render(
-        "Собери 10 монет, чтобы выиграть.",
+        f"Собери {win_score} монет и не касайся красного врага.",
         True,
         (50, 50, 50)
     )
