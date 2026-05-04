@@ -1,5 +1,6 @@
 import pygame
 import random
+import ctypes
 from player import Player
 from database import Database
 from enemy import Enemy
@@ -15,6 +16,12 @@ SCREEN_HEIGHT = 600
 
 screen = pygame.display.set_mode((SCREEN_WIDTH, SCREEN_HEIGHT))
 pygame.display.set_caption("Coin Game")
+
+try:
+    hwnd = pygame.display.get_wm_info()["window"]
+    ctypes.windll.user32.SetForegroundWindow(hwnd)
+except Exception:
+    pass
 
 clock = pygame.time.Clock()
 
@@ -43,13 +50,15 @@ enemy = Enemy(
 score = 0
 win_score = 10
 
+start_screen = True
+
 game_over = False
 result_text = ""
 
 running = True
 
 def restart_game():
-    global player, coin_x, coin_y, enemy, score, game_over, result_text
+    global player, coin_x, coin_y, enemy, score, game_over, result_text, start_screen
 
     player = Player(
         x=SCREEN_WIDTH // 2,
@@ -72,7 +81,8 @@ def restart_game():
     score = 0
     game_over = False
     result_text = ""
-
+    start_screen = True
+    
 while running:
     clock.tick(60)
 
@@ -81,19 +91,22 @@ while running:
             running = False
 
         if event.type == pygame.KEYDOWN:
+            if start_screen and event.key == pygame.K_RETURN:
+                start_screen = False
+
             if game_over and event.key == pygame.K_r:
                 restart_game()
 
     keys = pygame.key.get_pressed()
 
-    if not game_over:
+    if not start_screen and not game_over:
         player.move(keys, SCREEN_WIDTH, SCREEN_HEIGHT)
         enemy.move(SCREEN_WIDTH, SCREEN_HEIGHT)
 
     coin_rect = pygame.Rect(coin_x, coin_y, coin_size, coin_size)
     enemy_rect = enemy.get_rect()
 
-    if not game_over and player.get_rect().colliderect(coin_rect):
+    if not start_screen and not game_over and player.get_rect().colliderect(coin_rect):
         score += 1
 
         if score >= win_score:
@@ -104,12 +117,32 @@ while running:
             coin_x = random.randint(0, SCREEN_WIDTH - coin_size)
             coin_y = random.randint(100, SCREEN_HEIGHT - coin_size)
 
-    if not game_over and player.get_rect().colliderect(enemy_rect):
+    if not start_screen and not game_over and player.get_rect().colliderect(enemy_rect):
         game_over = True
         result_text = "Ты проиграл!"
         db.save_score(nickname, score)
 
     screen.fill((240, 240, 240))
+
+    if start_screen:
+        title_text = font.render("Coin Game", True, (0, 0, 0))
+        rule_1 = small_font.render("Правила игры:", True, (0, 0, 0))
+        rule_2 = small_font.render("1. Управляй синим квадратом стрелками.", True, (50, 50, 50))
+        rule_3 = small_font.render("2. Собирай жёлтые монеты, чтобы получать очки.", True, (50, 50, 50))
+        rule_4 = small_font.render("3. Собери 10 монет, чтобы выиграть.", True, (50, 50, 50))
+        rule_5 = small_font.render("4. Не касайся красного врага — это проигрыш.", True, (50, 50, 50))
+        start_text = small_font.render("Нажми ENTER, чтобы начать игру.", True, (0, 100, 0))
+
+        screen.blit(title_text, (SCREEN_WIDTH // 2 - 70, 120))
+        screen.blit(rule_1, (SCREEN_WIDTH // 2 - 120, 190))
+        screen.blit(rule_2, (SCREEN_WIDTH // 2 - 220, 230))
+        screen.blit(rule_3, (SCREEN_WIDTH // 2 - 220, 260))
+        screen.blit(rule_4, (SCREEN_WIDTH // 2 - 220, 290))
+        screen.blit(rule_5, (SCREEN_WIDTH // 2 - 220, 320))
+        screen.blit(start_text, (SCREEN_WIDTH // 2 - 170, 390))
+
+        pygame.display.update()
+        continue
 
     pygame.draw.circle(
         screen,
