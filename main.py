@@ -133,8 +133,58 @@ top_reset_message_time = 0
 pause_button = pygame.Rect(600, 20, 80, 35)
 continue_button = pygame.Rect(690, 20, 90, 35)
 reset_top_button = pygame.Rect(SCREEN_WIDTH // 2 - 110, 535, 220, 40)
+name_continue_button = pygame.Rect(SCREEN_WIDTH // 2 + 10, SCREEN_HEIGHT // 2 + 80, 180, 40)
+name_clear_button = pygame.Rect(SCREEN_WIDTH // 2 - 190, SCREEN_HEIGHT // 2 + 80, 180, 40)
+start_game_button = pygame.Rect(SCREEN_WIDTH // 2 - 100, 490, 200, 40)
+restart_button = pygame.Rect(SCREEN_WIDTH // 2 - 110, SCREEN_HEIGHT // 2 + 115, 220, 40)
+
+goal_buttons = {
+    10: pygame.Rect(SCREEN_WIDTH // 2 - 210, 390, 120, 38),
+    20: pygame.Rect(SCREEN_WIDTH // 2 - 60, 390, 120, 38),
+    50: pygame.Rect(SCREEN_WIDTH // 2 + 90, 390, 120, 38)
+}
+
+difficulty_buttons = {
+    "easy": pygame.Rect(SCREEN_WIDTH // 2 - 150, 440, 130, 38),
+    "hard": pygame.Rect(SCREEN_WIDTH // 2 + 20, 440, 130, 38)
+}
 
 running = True
+
+def draw_button(rect, text, selected=False, disabled=False):
+    if disabled:
+        fill_color = (220, 220, 220)
+        border_color = (150, 150, 150)
+        text_color = (110, 110, 110)
+    elif selected:
+        fill_color = (210, 235, 255)
+        border_color = (0, 100, 200)
+        text_color = (0, 60, 140)
+    else:
+        fill_color = (255, 255, 255)
+        border_color = (0, 0, 0)
+        text_color = (0, 0, 0)
+
+    pygame.draw.rect(screen, fill_color, rect)
+    pygame.draw.rect(screen, border_color, rect, 2)
+
+    text_surface = small_font.render(text, True, text_color)
+    text_rect = text_surface.get_rect(center=rect.center)
+    screen.blit(text_surface, text_rect)
+
+def start_game(start_time):
+    global start_screen, game_start_time, game_elapsed_time, last_frame_time
+    global time_limit, time_warning_played, last_enemy_double_time, enemy_speed_bonus
+
+    start_screen = False
+    game_start_time = start_time
+    game_elapsed_time = 0
+    last_frame_time = game_start_time
+    time_limit = get_time_limit()
+    time_warning_played = False
+    last_enemy_double_time = 0
+    enemy_speed_bonus = 0
+    play_background_music(play_music)
 
 def restart_game():
     global player, coin_x, coin_y, enemies, score, game_over, result_text
@@ -179,6 +229,15 @@ while running:
             running = False
 
         if event.type == pygame.MOUSEBUTTONDOWN:
+            if event.button == 1 and input_name_screen:
+                mouse_pos = event.pos
+
+                if name_continue_button.collidepoint(mouse_pos) and nickname.strip() != "":
+                    input_name_screen = False
+
+                if name_clear_button.collidepoint(mouse_pos):
+                    nickname = ""
+
             if event.button == 1 and not input_name_screen and start_screen:
                 mouse_pos = event.pos
 
@@ -186,6 +245,17 @@ while running:
                     db.clear_top_players()
                     top_reset_message = "Топ игроков очищен"
                     top_reset_message_time = current_time
+
+                for goal, button in goal_buttons.items():
+                    if button.collidepoint(mouse_pos):
+                        win_score = goal
+
+                for mode, button in difficulty_buttons.items():
+                    if button.collidepoint(mouse_pos):
+                        difficulty = mode
+
+                if start_game_button.collidepoint(mouse_pos):
+                    start_game(current_time)
 
             if event.button == 1 and not input_name_screen and not start_screen and not game_over:
                 mouse_pos = event.pos
@@ -198,54 +268,19 @@ while running:
                     paused = False
                     pygame.mixer.music.unpause()
 
-        if event.type == pygame.KEYDOWN:
-            if input_name_screen:
-                if event.key == pygame.K_RETURN and nickname.strip() != "":
-                    input_name_screen = False
+            if event.button == 1 and game_over:
+                mouse_pos = event.pos
 
-                elif event.key == pygame.K_BACKSPACE:
-                    nickname = nickname[:-1]
+                if restart_button.collidepoint(mouse_pos):
+                    restart_game()
 
-                else:
-                    if len(nickname) < 15:
-                        nickname += event.unicode
-
-                continue
-
-            if start_screen:
-                if event.key == pygame.K_1:
-                    win_score = 10
-
-                if event.key == pygame.K_2:
-                    win_score = 20
-
-                if event.key == pygame.K_3:
-                    win_score = 50
-
-                if event.key == pygame.K_e:
-                    difficulty = "easy"
-
-                if event.key == pygame.K_h:
-                    difficulty = "hard"
-
-                if event.key == pygame.K_RETURN:
-                    start_screen = False
-                    game_start_time = current_time
-                    game_elapsed_time = 0
-                    last_frame_time = current_time
-                    time_limit = get_time_limit()
-                    time_warning_played = False
-                    last_enemy_double_time = 0
-                    enemy_speed_bonus = 0
-                    play_background_music(play_music)
-
-            if game_over and event.key == pygame.K_r:
-                restart_game()
-
-    keys = pygame.key.get_pressed()
+        if event.type == pygame.TEXTINPUT and input_name_screen:
+            if event.text.isprintable() and len(nickname) < 15:
+                nickname += event.text
 
     if not start_screen and not game_over and not paused:
         game_elapsed_time += frame_time
+        keys = pygame.key.get_pressed()
         player.move(keys, SCREEN_WIDTH, SCREEN_HEIGHT)
 
         if game_elapsed_time >= enemy_start_delay:
@@ -338,11 +373,10 @@ while running:
         pygame.draw.rect(screen, (0, 0, 0), input_box, 2)
 
         name_text = font.render(nickname, True, (0, 0, 0))
-        hint_text = small_font.render("Нажмите ENTER, чтобы продолжить", True, (80, 80, 80))
-
         screen.blit(title_text, (SCREEN_WIDTH // 2 - 145, SCREEN_HEIGHT // 2 - 110))
         screen.blit(name_text, (input_box.x + 15, input_box.y + 15))
-        screen.blit(hint_text, (SCREEN_WIDTH // 2 - 170, SCREEN_HEIGHT // 2 + 50))
+        draw_button(name_clear_button, "Очистить", disabled=nickname == "")
+        draw_button(name_continue_button, "Продолжить", disabled=nickname.strip() == "")
 
         pygame.display.update()
         continue
@@ -356,8 +390,6 @@ while running:
         rule_5 = small_font.render("4. Не касайся красного врага — это проигрыш.", True, (50, 50, 50))
         rule_6 = small_font.render("5. Враг начнёт двигаться через 2 секунды после старта.", True, (50, 50, 50))
         choose_text = small_font.render("Выбери цель: 1 — 10 очков, 2 — 20 очков, 3 — 50 очков.", True, (0, 0, 120))
-        start_text = small_font.render("Нажми ENTER, чтобы начать игру.", True, (0, 100, 0))
-
         mode_text = small_font.render(
             f"Режим: {'лёгкий' if difficulty == 'easy' else 'сложный'}",
             True,
@@ -383,7 +415,18 @@ while running:
         screen.blit(choose_text, (SCREEN_WIDTH // 2 - 260, 390))
         screen.blit(mode_text, (SCREEN_WIDTH // 2 - 100, 430))
         screen.blit(difficulty_text, (SCREEN_WIDTH // 2 - 210, 465))
-        screen.blit(start_text, (SCREEN_WIDTH // 2 - 170, 500))
+        pygame.draw.rect(screen, (240, 240, 240), (0, 380, SCREEN_WIDTH, 145))
+        goal_label = small_font.render("Цель", True, (0, 0, 120))
+        difficulty_label = small_font.render("Режим", True, (0, 0, 120))
+        screen.blit(goal_label, (SCREEN_WIDTH // 2 - 260, 398))
+        screen.blit(difficulty_label, (SCREEN_WIDTH // 2 - 230, 448))
+
+        for goal, button in goal_buttons.items():
+            draw_button(button, str(goal), selected=win_score == goal)
+
+        draw_button(difficulty_buttons["easy"], "Легкий", selected=difficulty == "easy")
+        draw_button(difficulty_buttons["hard"], "Сложный", selected=difficulty == "hard")
+        draw_button(start_game_button, "Старт")
 
         pygame.draw.rect(screen, (255, 255, 255), reset_top_button)
         pygame.draw.rect(screen, (180, 0, 0), reset_top_button, 2)
@@ -421,7 +464,7 @@ while running:
         (0, 0, 0)
     )
     help_text = small_font.render(
-        "WASD / arrows - move",
+        "Двигайтесь кнопками WASD или стрелками на клавиатуре",
         True,
         (80, 80, 80)
     )
@@ -454,7 +497,7 @@ while running:
         top_players = db.get_top_players()
 
         card_width = 420
-        card_height = 320
+        card_height = 380
 
         card_x = SCREEN_WIDTH // 2 - card_width // 2
         card_y = SCREEN_HEIGHT // 2 - card_height // 2
@@ -481,25 +524,19 @@ while running:
         result_rect = result_surface.get_rect(center=(SCREEN_WIDTH // 2, card_y + 40))
         screen.blit(result_surface, result_rect)
 
-        restart_surface = small_font.render(
-            "Нажми R, чтобы сыграть снова",
-            True,
-            (50, 50, 50)
-        )
-        restart_rect = restart_surface.get_rect(center=(SCREEN_WIDTH // 2, card_y + 80))
-        screen.blit(restart_surface, restart_rect)
-
         title = small_font.render("ТОП-5 игроков:", True, (0, 0, 0))
-        title_rect = title.get_rect(center=(SCREEN_WIDTH // 2, card_y + 125))
+        title_rect = title.get_rect(center=(SCREEN_WIDTH // 2, card_y + 90))
         screen.blit(title, title_rect)
 
-        y_offset = card_y + 160
+        y_offset = card_y + 125
 
         for i, (name, sc) in enumerate(top_players):
             text = small_font.render(f"{i + 1}. {name} — {sc}", True, (0, 0, 0))
             text_rect = text.get_rect(center=(SCREEN_WIDTH // 2, y_offset))
             screen.blit(text, text_rect)
             y_offset += 28
+
+        draw_button(restart_button, "Играть снова")
 
     pygame.display.update()
 
