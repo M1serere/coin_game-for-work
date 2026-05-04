@@ -29,8 +29,8 @@ font = pygame.font.SysFont("Arial", 28)
 small_font = pygame.font.SysFont("Arial", 22)
 
 player = Player(
-    x=SCREEN_WIDTH // 2,
-    y=SCREEN_HEIGHT // 2,
+    x=SCREEN_WIDTH // 2 - 20,
+    y=SCREEN_HEIGHT // 2 - 20,
     size=40,
     speed=5
 )
@@ -40,13 +40,23 @@ coin_size = 25
 coin_x = random.randint(0, SCREEN_WIDTH - coin_size)
 coin_y = random.randint(100, SCREEN_HEIGHT - coin_size)
 
-enemy = Enemy(
-    x=random.randint(0, SCREEN_WIDTH - 45),
-    y=random.randint(100, SCREEN_HEIGHT - 45),
-    size=45,
-    speed_x=3,
-    speed_y=3
-)
+def create_safe_enemy(player):
+    enemy_size = 45
+
+    while True:
+        enemy = Enemy(
+            x=random.randint(0, SCREEN_WIDTH - enemy_size),
+            y=random.randint(100, SCREEN_HEIGHT - enemy_size),
+            size=enemy_size,
+            speed_x=3,
+            speed_y=3
+        )
+
+        if not enemy.get_rect().colliderect(player.get_rect()):
+            return enemy
+
+enemy = create_safe_enemy(player)
+
 score = 0
 win_score = 10
 enemy_start_delay = 2000
@@ -74,13 +84,7 @@ def restart_game():
     coin_x = random.randint(0, SCREEN_WIDTH - coin_size)
     coin_y = random.randint(100, SCREEN_HEIGHT - coin_size)
 
-    enemy = Enemy(
-        x=random.randint(0, SCREEN_WIDTH - 45),
-        y=random.randint(100, SCREEN_HEIGHT - 45),
-        size=45,
-        speed_x=3,
-        speed_y=3
-    )
+    enemy = create_safe_enemy(player)
 
     score = 0
     game_over = False
