@@ -162,6 +162,7 @@ loss_animation_start_time = 0
 LOSS_ANIMATION_TIME = 3000
 
 input_name_screen = True
+DEFAULT_NICKNAME = "Неизвестный Огонёчек"
 nickname = ""
 
 start_screen = True
@@ -177,7 +178,7 @@ top_reset_message = ""
 top_reset_message_time = 0
 focused_menu_index = 5
 
-exit_menu_button = pygame.Rect(510, 20, 100, 35)
+exit_menu_button = pygame.Rect(655, 60, 100, 35)
 pause_button = pygame.Rect(620, 20, 75, 35)
 continue_button = pygame.Rect(700, 20, 90, 35)
 settings_button = pygame.Rect(SCREEN_WIDTH // 2 + 150, 535, 125, 35)
@@ -193,6 +194,7 @@ reset_top_button = pygame.Rect(SCREEN_WIDTH // 2 - 110, 535, 220, 38)
 exit_game_button = pygame.Rect(SCREEN_WIDTH // 2 - 275, 535, 125, 35)
 name_continue_button = pygame.Rect(SCREEN_WIDTH // 2 + 10, SCREEN_HEIGHT // 2 + 80, 180, 40)
 name_clear_button = pygame.Rect(SCREEN_WIDTH // 2 - 190, SCREEN_HEIGHT // 2 + 80, 180, 40)
+name_skip_button = pygame.Rect(SCREEN_WIDTH // 2 - 130, SCREEN_HEIGHT // 2 + 130, 260, 40)
 start_game_button = pygame.Rect(SCREEN_WIDTH // 2 - 80, 485, 160, 40)
 restart_button = pygame.Rect(SCREEN_WIDTH // 2 - 110, SCREEN_HEIGHT // 2 + 115, 220, 40)
 main_menu_button = pygame.Rect(SCREEN_WIDTH // 2 - 110, SCREEN_HEIGHT // 2 + 160, 220, 40)
@@ -524,6 +526,19 @@ def draw_button(rect, text, selected=False, disabled=False, focused=False):
 def draw_focus_rect(rect):
     pygame.draw.rect(screen, (255, 170, 0), rect.inflate(8, 8), 3)
 
+def continue_from_name_screen(use_default=False):
+    global input_name_screen, nickname
+
+    if use_default:
+        nickname = DEFAULT_NICKNAME
+        input_name_screen = False
+        return
+
+    nickname = nickname.strip()
+
+    if nickname != "":
+        input_name_screen = False
+
 def start_game(start_time):
     global start_screen, game_start_time, game_elapsed_time, last_frame_time
     global time_limit, time_warning_played, last_enemy_double_time, enemy_speed_bonus
@@ -650,8 +665,11 @@ while running:
             if event.button == 1 and input_name_screen:
                 mouse_pos = event.pos
 
-                if name_continue_button.collidepoint(mouse_pos) and nickname.strip() != "":
-                    input_name_screen = False
+                if name_continue_button.collidepoint(mouse_pos):
+                    continue_from_name_screen()
+
+                if name_skip_button.collidepoint(mouse_pos):
+                    continue_from_name_screen(use_default=True)
 
                 if name_clear_button.collidepoint(mouse_pos):
                     nickname = ""
@@ -802,8 +820,8 @@ while running:
                     continue
 
             if event.key == pygame.K_RETURN:
-                if input_name_screen and nickname.strip() != "":
-                    input_name_screen = False
+                if input_name_screen:
+                    continue_from_name_screen()
                 elif game_over:
                     start_new_game(current_time)
 
@@ -899,6 +917,8 @@ while running:
         screen.blit(name_text, (input_box.x + 15, input_box.y + 15))
         draw_button(name_clear_button, "Очистить", disabled=nickname == "")
         draw_button(name_continue_button, "Продолжить", disabled=nickname.strip() == "")
+
+        draw_button(name_skip_button, "Продолжить без имени")
 
         pygame.display.update()
         continue
