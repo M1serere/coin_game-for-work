@@ -2,6 +2,7 @@ import pygame
 import random
 import ctypes
 import os
+from paths import resource_path
 from player import Player
 from database import Database
 from enemy import Enemy
@@ -14,13 +15,13 @@ db = Database()
 MUSIC_DIR = "music"
 ASSETS_DIR = "assets"
 
-menu_music = os.path.join(MUSIC_DIR, "menu_m.mp3")
-play_music = os.path.join(MUSIC_DIR, "play_m.mp3")
-win_music = os.path.join(MUSIC_DIR, "win_m.mp3")
-lose_music = os.path.join(MUSIC_DIR, "lose_m.mp3")
-coin_sound = pygame.mixer.Sound(os.path.join(MUSIC_DIR, "coin_m.mp3"))
-time_sound = pygame.mixer.Sound(os.path.join(MUSIC_DIR, "time_m.mp3"))
-teleport_sound = pygame.mixer.Sound(os.path.join(MUSIC_DIR, "teleport.mp3"))
+menu_music = resource_path(MUSIC_DIR, "menu_m.mp3")
+play_music = resource_path(MUSIC_DIR, "play_m.mp3")
+win_music = resource_path(MUSIC_DIR, "win_m.mp3")
+lose_music = resource_path(MUSIC_DIR, "lose_m.mp3")
+coin_sound = pygame.mixer.Sound(resource_path(MUSIC_DIR, "coin_m.mp3"))
+time_sound = pygame.mixer.Sound(resource_path(MUSIC_DIR, "time_m.mp3"))
+teleport_sound = pygame.mixer.Sound(resource_path(MUSIC_DIR, "teleport.mp3"))
 
 current_music = None
 music_volume = 0.6
@@ -50,12 +51,12 @@ SCREEN_HEIGHT = 600
 screen = pygame.display.set_mode((SCREEN_WIDTH, SCREEN_HEIGHT))
 pygame.display.set_caption("Спасайся, огонёк!")
 
-game_background = pygame.image.load(os.path.join(ASSETS_DIR, "fon_g.jpg")).convert()
+game_background = pygame.image.load(resource_path(ASSETS_DIR, "fon_g.jpg")).convert()
 game_background = pygame.transform.scale(game_background, (SCREEN_WIDTH, SCREEN_HEIGHT))
-menu_background = pygame.image.load(os.path.join(ASSETS_DIR, "fon_m.jpg")).convert()
+menu_background = pygame.image.load(resource_path(ASSETS_DIR, "fon_m.jpg")).convert()
 menu_background = pygame.transform.scale(menu_background, (SCREEN_WIDTH, SCREEN_HEIGHT))
-circle_image = pygame.image.load(os.path.join(ASSETS_DIR, "circle.png")).convert_alpha()
-cloud_overlay = pygame.image.load(os.path.join(ASSETS_DIR, "cloud.png")).convert_alpha()
+circle_image = pygame.image.load(resource_path(ASSETS_DIR, "circle.png")).convert_alpha()
+cloud_overlay = pygame.image.load(resource_path(ASSETS_DIR, "cloud.png")).convert_alpha()
 cloud_overlay = pygame.transform.smoothscale(cloud_overlay, (SCREEN_WIDTH, SCREEN_HEIGHT))
 cloud_overlay.set_alpha(155)
 
@@ -84,7 +85,7 @@ coin_sprite_size = int(coin_size * 0.75)
 coin_animation_delay = 100
 coin_frames = [
     pygame.transform.scale(
-        pygame.image.load(os.path.join(ASSETS_DIR, f"flame_{i}.png")).convert_alpha(),
+        pygame.image.load(resource_path(ASSETS_DIR, f"flame_{i}.png")).convert_alpha(),
         (coin_sprite_size, coin_sprite_size)
     )
     for i in range(1, 8)

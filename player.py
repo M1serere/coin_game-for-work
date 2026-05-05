@@ -1,5 +1,5 @@
 import pygame
-import os
+from paths import resource_path
 
 
 class Player:
@@ -11,7 +11,7 @@ class Player:
         self.animation_delay = 100
         self.flame_size = size
         self.source_frames = [
-            pygame.image.load(os.path.join("assets", f"flame_{i}.png")).convert_alpha()
+            pygame.image.load(resource_path("assets", f"flame_{i}.png")).convert_alpha()
             for i in range(1, 7)
         ]
         self.update_frames()

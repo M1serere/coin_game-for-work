@@ -1,5 +1,5 @@
 import pygame
-import os
+from paths import resource_path
 
 
 class Enemy:
@@ -20,7 +20,7 @@ class Enemy:
     def load_frames(self, direction):
         return [
             pygame.transform.scale(
-                pygame.image.load(os.path.join("assets", f"enemy_{direction}_{i}.png")).convert_alpha(),
+                pygame.image.load(resource_path("assets", f"enemy_{direction}_{i}.png")).convert_alpha(),
                 (self.size, self.size)
             )
             for i in range(1, 9)

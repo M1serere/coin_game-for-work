@@ -1,8 +1,10 @@
 import sqlite3
+from paths import writable_path
 
 
 class Database:
     def __init__(self, db_name="game.db"):
+        db_name = writable_path(db_name)
         self.conn = sqlite3.connect(db_name)
         self.cursor = self.conn.cursor()
         self.create_table()
