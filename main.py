@@ -913,12 +913,14 @@ while running:
         pygame.draw.rect(screen, (0, 0, 0), input_box, 2)
 
         name_text = font.render(nickname, True, (0, 0, 0))
-        screen.blit(title_text, (SCREEN_WIDTH // 2 - 145, SCREEN_HEIGHT // 2 - 110))
-        screen.blit(name_text, (input_box.x + 15, input_box.y + 15))
+        title_rect = title_text.get_rect(center=(SCREEN_WIDTH // 2, SCREEN_HEIGHT // 2 - 100))
+        name_rect = name_text.get_rect(center=input_box.center)
+        screen.blit(title_text, title_rect)
+        screen.blit(name_text, name_rect)
         draw_button(name_clear_button, "Очистить", disabled=nickname == "")
         draw_button(name_continue_button, "Продолжить", disabled=nickname.strip() == "")
 
-        draw_button(name_skip_button, "Продолжить без имени")
+        draw_button(name_skip_button, "Остаться неизвестным")
 
         pygame.display.update()
         continue
@@ -932,11 +934,11 @@ while running:
         title_rect = title_text.get_rect(center=(SCREEN_WIDTH // 2, 70))
         rules = [
             ("Правила игры:", (0, 0, 0)),
-            ("1. Управляй синим квадратом стрелками.", (50, 50, 50)),
-            ("2. Собирай жёлтые монеты, чтобы получать очки.", (50, 50, 50)),
-            (f"3. Собери {win_score} монет, чтобы выиграть.", (50, 50, 50)),
-            ("4. Не касайся красного врага — это проигрыш.", (50, 50, 50)),
-            ("5. Враг начнёт двигаться через 2 секунды после старта.", (50, 50, 50))
+            ("Синий огонёчек хочет сбежать от злого волшебника. Повезло, на поляне туман.", (50, 50, 50)),
+            ("Собирай частицы огонёчка, чтобы успешно создать заклинание побега.", (50, 50, 50)),
+            (f"Надо собрать {win_score} монет, чтобы успешно сбежать.", (50, 50, 50)),
+            ("Не попадайся злому волшебнику — он тебя схватит.", (50, 50, 50)),
+            ("Удачи сбежать!", (50, 50, 50))
         ]
         mode_text = small_font.render(
             f"Режим: {'лёгкий' if difficulty == 'easy' else 'сложный'}",
