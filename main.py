@@ -48,10 +48,12 @@ SCREEN_WIDTH = 800
 SCREEN_HEIGHT = 600
 
 screen = pygame.display.set_mode((SCREEN_WIDTH, SCREEN_HEIGHT))
-pygame.display.set_caption("Coin Game")
+pygame.display.set_caption("Спасайся, огонёк!")
 
 game_background = pygame.image.load(os.path.join(ASSETS_DIR, "fon_g.jpg")).convert()
 game_background = pygame.transform.scale(game_background, (SCREEN_WIDTH, SCREEN_HEIGHT))
+menu_background = pygame.image.load(os.path.join(ASSETS_DIR, "fon_m.jpg")).convert()
+menu_background = pygame.transform.scale(menu_background, (SCREEN_WIDTH, SCREEN_HEIGHT))
 circle_image = pygame.image.load(os.path.join(ASSETS_DIR, "circle.png")).convert_alpha()
 cloud_overlay = pygame.image.load(os.path.join(ASSETS_DIR, "cloud.png")).convert_alpha()
 cloud_overlay = pygame.transform.smoothscale(cloud_overlay, (SCREEN_WIDTH, SCREEN_HEIGHT))
@@ -164,23 +166,27 @@ game_over = False
 result_text = ""
 paused = False
 exit_confirm_open = False
+exit_game_confirm_open = False
 settings_open = False
 dragging_slider = None
 top_reset_message = ""
 top_reset_message_time = 0
-focused_menu_index = 6
+focused_menu_index = 5
 
 exit_menu_button = pygame.Rect(510, 20, 100, 35)
 pause_button = pygame.Rect(620, 20, 75, 35)
 continue_button = pygame.Rect(700, 20, 90, 35)
-settings_button = pygame.Rect(665, 20, 125, 35)
+settings_button = pygame.Rect(SCREEN_WIDTH // 2 + 150, 535, 125, 35)
 settings_close_button = pygame.Rect(SCREEN_WIDTH // 2 - 70, SCREEN_HEIGHT // 2 + 135, 140, 40)
 exit_yes_button = pygame.Rect(SCREEN_WIDTH // 2 - 130, SCREEN_HEIGHT // 2 + 45, 110, 40)
 exit_no_button = pygame.Rect(SCREEN_WIDTH // 2 + 20, SCREEN_HEIGHT // 2 + 45, 110, 40)
+exit_game_yes_button = pygame.Rect(SCREEN_WIDTH // 2 - 130, SCREEN_HEIGHT // 2 + 45, 110, 40)
+exit_game_no_button = pygame.Rect(SCREEN_WIDTH // 2 + 20, SCREEN_HEIGHT // 2 + 45, 110, 40)
 music_slider = pygame.Rect(SCREEN_WIDTH // 2 - 150, SCREEN_HEIGHT // 2 - 45, 300, 8)
 player_speed_slider = pygame.Rect(SCREEN_WIDTH // 2 - 150, SCREEN_HEIGHT // 2 + 25, 300, 8)
 enemy_speed_slider = pygame.Rect(SCREEN_WIDTH // 2 - 150, SCREEN_HEIGHT // 2 + 95, 300, 8)
 reset_top_button = pygame.Rect(SCREEN_WIDTH // 2 - 110, 535, 220, 38)
+exit_game_button = pygame.Rect(SCREEN_WIDTH // 2 - 275, 535, 125, 35)
 name_continue_button = pygame.Rect(SCREEN_WIDTH // 2 + 10, SCREEN_HEIGHT // 2 + 80, 180, 40)
 name_clear_button = pygame.Rect(SCREEN_WIDTH // 2 - 190, SCREEN_HEIGHT // 2 + 80, 180, 40)
 start_game_button = pygame.Rect(SCREEN_WIDTH // 2 - 80, 485, 160, 40)
@@ -201,14 +207,40 @@ difficulty_buttons = {
 running = True
 
 def get_menu_buttons():
-    buttons = [("settings", None, settings_button)]
-    buttons.extend(("goal", goal, button) for goal, button in goal_buttons.items())
-    buttons.extend(("difficulty", mode, button) for mode, button in difficulty_buttons.items())
-    buttons.extend([
-        ("start", None, start_game_button),
-        ("reset_top", None, reset_top_button)
-    ])
+    buttons = []
+
+    for row in get_menu_button_rows():
+        buttons.extend(row)
+
     return buttons
+
+def get_menu_button_rows():
+    return [
+        [("goal", goal, button) for goal, button in goal_buttons.items()],
+        [("difficulty", mode, button) for mode, button in difficulty_buttons.items()],
+        [("start", None, start_game_button)],
+        [
+            ("exit_game", None, exit_game_button),
+            ("reset_top", None, reset_top_button),
+            ("settings", None, settings_button)
+        ]
+    ]
+
+def set_menu_focus_by_button(kind, value=None):
+    global focused_menu_index
+
+    for index, (button_kind, button_value, _) in enumerate(get_menu_buttons()):
+        if button_kind == kind and button_value == value:
+            focused_menu_index = index
+            return
+
+def set_menu_focus_by_pos(pos):
+    global focused_menu_index
+
+    for index, (_, _, rect) in enumerate(get_menu_buttons()):
+        if rect.collidepoint(pos):
+            focused_menu_index = index
+            return
 
 def is_menu_button_focused(kind, value=None):
     menu_buttons = get_menu_buttons()
@@ -223,34 +255,47 @@ def move_menu_focus(direction):
 def move_menu_focus_by_direction(dx, dy):
     global focused_menu_index
 
-    menu_buttons = get_menu_buttons()
-    _, _, current_rect = menu_buttons[focused_menu_index % len(menu_buttons)]
-    current_x, current_y = current_rect.center
-    candidates = []
+    rows = get_menu_button_rows()
+    flat_index = 0
+    current_row_index = 0
+    current_column_index = 0
 
-    for index, (_, _, rect) in enumerate(menu_buttons):
-        if index == focused_menu_index:
-            continue
+    for row_index, row in enumerate(rows):
+        if focused_menu_index < flat_index + len(row):
+            current_row_index = row_index
+            current_column_index = focused_menu_index - flat_index
+            break
 
-        target_x, target_y = rect.center
-        delta_x = target_x - current_x
-        delta_y = target_y - current_y
+        flat_index += len(row)
 
-        if dx != 0 and delta_x * dx <= 0:
-            continue
+    current_rect = rows[current_row_index][current_column_index][2]
 
-        if dy != 0 and delta_y * dy <= 0:
-            continue
+    if dx != 0:
+        row = rows[current_row_index]
+        next_column_index = current_column_index + dx
 
-        primary_distance = abs(delta_x) if dx != 0 else abs(delta_y)
-        secondary_distance = abs(delta_y) if dx != 0 else abs(delta_x)
-        candidates.append((primary_distance, secondary_distance, index))
+        if 0 <= next_column_index < len(row):
+            focused_menu_index += dx
 
-    if candidates:
-        focused_menu_index = min(candidates)[2]
+        return
+
+    if dy != 0:
+        next_row_index = current_row_index + dy
+
+        if not 0 <= next_row_index < len(rows):
+            return
+
+        next_row_start_index = sum(len(row) for row in rows[:next_row_index])
+        next_row = rows[next_row_index]
+        next_column_index = min(
+            range(len(next_row)),
+            key=lambda index: abs(next_row[index][2].centerx - current_rect.centerx)
+        )
+        focused_menu_index = next_row_start_index + next_column_index
 
 def activate_focused_menu_button(current_time):
     global settings_open, win_score, difficulty, top_reset_message, top_reset_message_time
+    global exit_game_confirm_open
 
     kind, value, _ = get_menu_buttons()[focused_menu_index % len(get_menu_buttons())]
 
@@ -262,9 +307,11 @@ def activate_focused_menu_button(current_time):
         difficulty = value
     elif kind == "start":
         start_game(current_time)
+    elif kind == "exit_game":
+        exit_game_confirm_open = True
     elif kind == "reset_top":
         db.clear_top_players()
-        top_reset_message = "РўРѕРї РёРіСЂРѕРєРѕРІ РѕС‡РёС‰РµРЅ"
+        top_reset_message = "\u0422\u043e\u043f \u0438\u0433\u0440\u043e\u043a\u043e\u0432 \u043e\u0447\u0438\u0449\u0435\u043d"
         top_reset_message_time = current_time
 
 def slider_value_from_mouse(mouse_x, slider_rect, min_value, max_value):
@@ -403,6 +450,22 @@ def draw_exit_confirm_panel():
     draw_button(exit_yes_button, "Да")
     draw_button(exit_no_button, "Нет")
 
+def draw_exit_game_confirm_panel():
+    overlay = pygame.Surface((SCREEN_WIDTH, SCREEN_HEIGHT), pygame.SRCALPHA)
+    overlay.fill((0, 0, 0, 120))
+    screen.blit(overlay, (0, 0))
+
+    panel = pygame.Rect(SCREEN_WIDTH // 2 - 220, SCREEN_HEIGHT // 2 - 100, 440, 200)
+    pygame.draw.rect(screen, (255, 255, 255), panel)
+    pygame.draw.rect(screen, (0, 0, 0), panel, 2)
+
+    title = font.render("Выйти из игры?", True, (0, 0, 0))
+    title_rect = title.get_rect(center=(SCREEN_WIDTH // 2, panel.y + 55))
+    screen.blit(title, title_rect)
+
+    draw_button(exit_game_yes_button, "Да")
+    draw_button(exit_game_no_button, "Нет")
+
 def draw_button(rect, text, selected=False, disabled=False, focused=False):
     if disabled:
         fill_color = (220, 220, 220)
@@ -538,7 +601,16 @@ while running:
 
                     continue
 
+                if exit_game_confirm_open:
+                    if exit_game_yes_button.collidepoint(mouse_pos):
+                        running = False
+                    elif exit_game_no_button.collidepoint(mouse_pos):
+                        exit_game_confirm_open = False
+
+                    continue
+
                 if not input_name_screen and start_screen and settings_button.collidepoint(mouse_pos):
+                    set_menu_focus_by_button("settings")
                     settings_open = True
                     continue
 
@@ -553,10 +625,11 @@ while running:
 
             if event.button == 1 and not input_name_screen and start_screen:
                 mouse_pos = event.pos
+                set_menu_focus_by_pos(mouse_pos)
 
                 if reset_top_button.collidepoint(mouse_pos):
                     db.clear_top_players()
-                    top_reset_message = "Топ игроков очищен"
+                    top_reset_message = "\u0422\u043e\u043f \u0438\u0433\u0440\u043e\u043a\u043e\u0432 \u043e\u0447\u0438\u0449\u0435\u043d"
                     top_reset_message_time = current_time
 
                 for goal, button in goal_buttons.items():
@@ -569,6 +642,10 @@ while running:
 
                 if start_game_button.collidepoint(mouse_pos):
                     start_game(current_time)
+
+                if exit_game_button.collidepoint(mouse_pos):
+                    exit_game_confirm_open = True
+                    continue
 
             if event.button == 1 and exit_confirm_open:
                 mouse_pos = event.pos
@@ -646,6 +723,17 @@ while running:
                     settings_open = False
                     dragging_slider = None
                     continue
+
+            if exit_game_confirm_open:
+                if event.key in (pygame.K_RETURN, pygame.K_y):
+                    running = False
+                    continue
+
+                if event.key in (pygame.K_ESCAPE, pygame.K_n):
+                    exit_game_confirm_open = False
+                    continue
+
+                continue
 
             if exit_confirm_open:
                 if event.key in (pygame.K_RETURN, pygame.K_y):
@@ -766,7 +854,7 @@ while running:
                 play_background_music(lose_music, loops=0)
                 break
 
-    screen.fill((240, 240, 240))
+    screen.blit(menu_background, (0, 0))
 
     if input_name_screen:
         title_text = font.render("Введите ваш никнейм", True, (0, 0, 0))
@@ -791,7 +879,11 @@ while running:
         continue
 
     if start_screen:
-        title_text = font.render("Coin Game", True, (0, 0, 0))
+        menu_panel = pygame.Rect(55, 35, 690, 550)
+        pygame.draw.rect(screen, (255, 255, 255), menu_panel)
+        pygame.draw.rect(screen, (0, 0, 0), menu_panel, 2)
+
+        title_text = font.render("Спасайся, огонёк!", True, (0, 0, 0))
         title_rect = title_text.get_rect(center=(SCREEN_WIDTH // 2, 70))
         rules = [
             ("Правила игры:", (0, 0, 0)),
@@ -804,7 +896,7 @@ while running:
         mode_text = small_font.render(
             f"Режим: {'лёгкий' if difficulty == 'easy' else 'сложный'}",
             True,
-            (120, 0, 0)
+            (0, 150, 0) if difficulty == "easy" else (200, 0, 0)
         )
         reset_top_text = small_font.render("Сбросить топ игроков", True, (0, 0, 0))
         reset_top_text_rect = reset_top_text.get_rect(center=reset_top_button.center)
@@ -837,6 +929,7 @@ while running:
         screen.blit(mode_text, mode_text_rect)
         draw_button(start_game_button, "Старт")
         draw_button(settings_button, "Настройки")
+        draw_button(exit_game_button, "Выход")
 
         pygame.draw.rect(screen, (255, 255, 255), reset_top_button)
         pygame.draw.rect(screen, (180, 0, 0), reset_top_button, 2)
@@ -850,6 +943,9 @@ while running:
 
         if settings_open:
             draw_settings_panel()
+
+        if exit_game_confirm_open:
+            draw_exit_game_confirm_panel()
 
         pygame.display.update()
         continue
