@@ -532,6 +532,11 @@ while running:
                 )
 
         if event.type == pygame.KEYDOWN:
+            if input_name_screen:
+                if event.key in (pygame.K_DELETE, pygame.K_BACKSPACE):
+                    nickname = nickname[:-1]
+                    continue
+
             if settings_open:
                 if event.key in (pygame.K_RETURN, pygame.K_SPACE):
                     settings_open = False

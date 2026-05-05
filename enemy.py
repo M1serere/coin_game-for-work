@@ -1,4 +1,5 @@
 import pygame
+import os
 
 
 class Enemy:
@@ -8,6 +9,20 @@ class Enemy:
         self.size = size
         self.speed_x = speed_x
         self.speed_y = speed_y
+        self.animation_delay = 100
+        self.frames = {
+            "left": self.load_frames("left"),
+            "right": self.load_frames("right")
+        }
+
+    def load_frames(self, direction):
+        return [
+            pygame.transform.scale(
+                pygame.image.load(os.path.join("assets", f"enemy_{direction}_{i}.png")).convert_alpha(),
+                (self.size, self.size)
+            )
+            for i in range(1, 9)
+        ]
 
     def move(self, screen_width, screen_height):
         self.x += self.speed_x
@@ -20,11 +35,9 @@ class Enemy:
             self.speed_y *= -1
 
     def draw(self, screen):
-        pygame.draw.rect(
-            screen,
-            (220, 0, 0),
-            (self.x, self.y, self.size, self.size)
-        )
+        direction = "right" if self.speed_x >= 0 else "left"
+        frame_index = (pygame.time.get_ticks() // self.animation_delay) % len(self.frames[direction])
+        screen.blit(self.frames[direction][frame_index], (self.x, self.y))
 
     def get_rect(self):
         return pygame.Rect(self.x, self.y, self.size, self.size)
