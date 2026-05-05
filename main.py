@@ -31,6 +31,7 @@ PLAYER_SPEED_MAX = 9
 ENEMY_SPEED_MIN = 1
 ENEMY_SPEED_MAX = 8
 MAX_SPEED_DIFFERENCE = 1
+PLAYER_FLAME_GROWTH = 2
 
 def play_background_music(path, loops=-1):
     global current_music
@@ -72,6 +73,15 @@ player = Player(
 )
 
 coin_size = 25
+coin_sprite_size = int(coin_size * 0.75)
+coin_animation_delay = 100
+coin_frames = [
+    pygame.transform.scale(
+        pygame.image.load(os.path.join(ASSETS_DIR, f"flame_{i}.png")).convert_alpha(),
+        (coin_sprite_size, coin_sprite_size)
+    )
+    for i in range(1, 8)
+]
 
 coin_x = random.randint(0, SCREEN_WIDTH - coin_size)
 coin_y = random.randint(100, SCREEN_HEIGHT - coin_size)
@@ -631,6 +641,7 @@ while running:
 
     if not start_screen and not game_over and not paused and not settings_open and player.get_rect().colliderect(coin_rect):
         score += 1
+        player.grow_flame(PLAYER_FLAME_GROWTH)
         coin_sound.play()
 
         if score >= win_score:
@@ -743,12 +754,10 @@ while running:
 
     screen.blit(game_background, (0, 0))
 
-    pygame.draw.circle(
-        screen,
-        (255, 200, 0),
-        (coin_x + coin_size // 2, coin_y + coin_size // 2),
-        coin_size // 2
-    )
+    coin_frame_index = (pygame.time.get_ticks() // coin_animation_delay) % len(coin_frames)
+    coin_draw_x = coin_x + (coin_size - coin_sprite_size) // 2
+    coin_draw_y = coin_y + (coin_size - coin_sprite_size) // 2
+    screen.blit(coin_frames[coin_frame_index], (coin_draw_x, coin_draw_y))
 
     for enemy in enemies:
         enemy.draw(screen)

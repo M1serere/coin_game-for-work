@@ -9,15 +9,24 @@ class Player:
         self.size = size
         self.speed = speed
         self.animation_delay = 100
-        self.sprite_width = int(self.size * 0.75)
-        self.sprite_height = int(self.size * 1.5)
-        self.frames = [
-            pygame.transform.scale(
-                pygame.image.load(os.path.join("assets", f"flame_{i}.png")).convert_alpha(),
-                (self.sprite_width, self.sprite_height)
-            )
+        self.flame_size = size
+        self.source_frames = [
+            pygame.image.load(os.path.join("assets", f"flame_{i}.png")).convert_alpha()
             for i in range(1, 7)
         ]
+        self.update_frames()
+
+    def update_frames(self):
+        self.sprite_width = int(self.flame_size * 0.75)
+        self.sprite_height = int(self.flame_size * 1.5)
+        self.frames = [
+            pygame.transform.scale(frame, (self.sprite_width, self.sprite_height))
+            for frame in self.source_frames
+        ]
+
+    def grow_flame(self, amount):
+        self.flame_size += amount
+        self.update_frames()
 
     def move(self, keys, screen_width, screen_height, top_limit=100):
         if (keys[pygame.K_LEFT] or keys[pygame.K_a]) and self.x > 0:
