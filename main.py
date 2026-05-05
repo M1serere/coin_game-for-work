@@ -20,6 +20,7 @@ win_music = os.path.join(MUSIC_DIR, "win_m.mp3")
 lose_music = os.path.join(MUSIC_DIR, "lose_m.mp3")
 coin_sound = pygame.mixer.Sound(os.path.join(MUSIC_DIR, "coin_m.mp3"))
 time_sound = pygame.mixer.Sound(os.path.join(MUSIC_DIR, "time_m.mp3"))
+teleport_sound = pygame.mixer.Sound(os.path.join(MUSIC_DIR, "teleport.mp3"))
 
 current_music = None
 music_volume = 0.6
@@ -51,6 +52,7 @@ pygame.display.set_caption("Coin Game")
 
 game_background = pygame.image.load(os.path.join(ASSETS_DIR, "fon_g.jpg")).convert()
 game_background = pygame.transform.scale(game_background, (SCREEN_WIDTH, SCREEN_HEIGHT))
+circle_image = pygame.image.load(os.path.join(ASSETS_DIR, "circle.png")).convert_alpha()
 
 try:
     hwnd = pygame.display.get_wm_info()["window"]
@@ -142,6 +144,13 @@ time_warning_played = False
 
 last_enemy_double_time = 0
 enemy_speed_bonus = 0
+
+victory_animation_active = False
+victory_animation_start_time = 0
+victory_teleport_played = False
+VICTORY_FADE_IN_TIME = 3000
+VICTORY_FADE_OUT_TIME = 3000
+VICTORY_ANIMATION_TIME = VICTORY_FADE_IN_TIME + VICTORY_FADE_OUT_TIME
 
 input_name_screen = True
 nickname = ""
@@ -312,6 +321,47 @@ def apply_enemy_speed():
         enemy.speed_x = speed if enemy.speed_x >= 0 else -speed
         enemy.speed_y = speed if enemy.speed_y >= 0 else -speed
 
+def start_victory_animation(current_time):
+    global victory_animation_active, victory_animation_start_time, victory_teleport_played
+
+    victory_animation_active = True
+    victory_animation_start_time = current_time
+    victory_teleport_played = False
+
+    for enemy in enemies:
+        enemy.freeze_animation()
+
+    db.save_score(nickname, score)
+    time_sound.stop()
+    pygame.mixer.music.stop()
+
+def finish_victory_animation():
+    global victory_animation_active, game_over, result_text
+
+    victory_animation_active = False
+    game_over = True
+    result_text = "Победа"
+    play_background_music(win_music, loops=0)
+
+def draw_victory_teleport(current_time):
+    elapsed = current_time - victory_animation_start_time
+
+    if elapsed < VICTORY_FADE_IN_TIME:
+        circle_alpha = int(255 * (elapsed / VICTORY_FADE_IN_TIME))
+        player_alpha = 255
+    else:
+        fade_out_progress = min(1, (elapsed - VICTORY_FADE_IN_TIME) / VICTORY_FADE_OUT_TIME)
+        circle_alpha = int(255 * (1 - fade_out_progress))
+        player_alpha = circle_alpha
+
+    circle_size = int(max(player.flame_size * 2.5, player.size * 2.5))
+    circle_width = int(circle_size * 1.25)
+    scaled_circle = pygame.transform.smoothscale(circle_image, (circle_width, circle_size))
+    scaled_circle.set_alpha(circle_alpha)
+    circle_rect = scaled_circle.get_rect(center=player.get_rect().center)
+    screen.blit(scaled_circle, circle_rect)
+    player.draw(screen, alpha=player_alpha)
+
 def draw_settings_panel():
     overlay = pygame.Surface((SCREEN_WIDTH, SCREEN_HEIGHT), pygame.SRCALPHA)
     overlay.fill((0, 0, 0, 95))
@@ -377,9 +427,13 @@ def reset_round():
     global game_start_time, game_elapsed_time, last_frame_time
     global paused, time_warning_played
     global last_enemy_double_time, enemy_speed_bonus
+    global victory_animation_active, victory_animation_start_time, victory_teleport_played
 
     last_enemy_double_time = 0
     enemy_speed_bonus = 0
+    victory_animation_active = False
+    victory_animation_start_time = 0
+    victory_teleport_played = False
 
     player = Player(
         x=SCREEN_WIDTH // 2 - 20,
@@ -492,7 +546,7 @@ while running:
                 if start_game_button.collidepoint(mouse_pos):
                     start_game(current_time)
 
-            if event.button == 1 and not input_name_screen and not start_screen and not game_over:
+            if event.button == 1 and not input_name_screen and not start_screen and not game_over and not victory_animation_active:
                 mouse_pos = event.pos
 
                 if pause_button.collidepoint(mouse_pos):
@@ -584,7 +638,7 @@ while running:
             if event.text.isprintable() and len(nickname) < 15:
                 nickname += event.text
 
-    if not start_screen and not game_over and not paused and not settings_open:
+    if not start_screen and not game_over and not paused and not settings_open and not victory_animation_active:
         game_elapsed_time += frame_time
         keys = pygame.key.get_pressed()
         player.move(keys, SCREEN_WIDTH, SCREEN_HEIGHT)
@@ -639,22 +693,18 @@ while running:
     coin_rect = pygame.Rect(coin_x, coin_y, coin_size, coin_size)
     #enemy_rect = enemy.get_rect()
 
-    if not start_screen and not game_over and not paused and not settings_open and player.get_rect().colliderect(coin_rect):
+    if not start_screen and not game_over and not paused and not settings_open and not victory_animation_active and player.get_rect().colliderect(coin_rect):
         score += 1
         player.grow_flame(PLAYER_FLAME_GROWTH)
         coin_sound.play()
 
         if score >= win_score:
-            game_over = True
-            result_text = "Победа"
-            db.save_score(nickname, score)
-            time_sound.stop()
-            play_background_music(win_music, loops=0)
+            start_victory_animation(current_time)
         else:
             coin_x = random.randint(0, SCREEN_WIDTH - coin_size)
             coin_y = random.randint(100, SCREEN_HEIGHT - coin_size)
 
-    if not start_screen and not game_over and not paused and not settings_open:
+    if not start_screen and not game_over and not paused and not settings_open and not victory_animation_active:
         for enemy in enemies:
             if player.get_rect().colliderect(enemy.get_rect()):
                 game_over = True
@@ -754,15 +804,28 @@ while running:
 
     screen.blit(game_background, (0, 0))
 
-    coin_frame_index = (pygame.time.get_ticks() // coin_animation_delay) % len(coin_frames)
-    coin_draw_x = coin_x + (coin_size - coin_sprite_size) // 2
-    coin_draw_y = coin_y + (coin_size - coin_sprite_size) // 2
-    screen.blit(coin_frames[coin_frame_index], (coin_draw_x, coin_draw_y))
+    victory_finished = game_over and result_text == "Победа"
+
+    if not victory_animation_active and not victory_finished:
+        coin_frame_index = (pygame.time.get_ticks() // coin_animation_delay) % len(coin_frames)
+        coin_draw_x = coin_x + (coin_size - coin_sprite_size) // 2
+        coin_draw_y = coin_y + (coin_size - coin_sprite_size) // 2
+        screen.blit(coin_frames[coin_frame_index], (coin_draw_x, coin_draw_y))
 
     for enemy in enemies:
-        enemy.draw(screen)
+        enemy.draw(screen, frozen=victory_animation_active or victory_finished)
 
-    player.draw(screen)
+    if victory_animation_active:
+        if current_time - victory_animation_start_time >= VICTORY_FADE_IN_TIME and not victory_teleport_played:
+            teleport_sound.play()
+            victory_teleport_played = True
+
+        draw_victory_teleport(current_time)
+
+        if current_time - victory_animation_start_time >= VICTORY_ANIMATION_TIME:
+            finish_victory_animation()
+    elif not victory_finished:
+        player.draw(screen)
 
     if not start_screen and game_start_time > 0:
         elapsed_time = game_elapsed_time

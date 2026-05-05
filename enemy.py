@@ -14,6 +14,8 @@ class Enemy:
             "left": self.load_frames("left"),
             "right": self.load_frames("right")
         }
+        self.frozen_direction = None
+        self.frozen_frame_index = 0
 
     def load_frames(self, direction):
         return [
@@ -34,9 +36,20 @@ class Enemy:
         if self.y <= 100 or self.y >= screen_height - self.size:
             self.speed_y *= -1
 
-    def draw(self, screen):
-        direction = "right" if self.speed_x >= 0 else "left"
-        frame_index = (pygame.time.get_ticks() // self.animation_delay) % len(self.frames[direction])
+    def freeze_animation(self):
+        self.frozen_direction = "right" if self.speed_x >= 0 else "left"
+        self.frozen_frame_index = (
+            pygame.time.get_ticks() // self.animation_delay
+        ) % len(self.frames[self.frozen_direction])
+
+    def draw(self, screen, frozen=False):
+        if frozen and self.frozen_direction is not None:
+            direction = self.frozen_direction
+            frame_index = self.frozen_frame_index
+        else:
+            direction = "right" if self.speed_x >= 0 else "left"
+            frame_index = (pygame.time.get_ticks() // self.animation_delay) % len(self.frames[direction])
+
         screen.blit(self.frames[direction][frame_index], (self.x, self.y))
 
     def get_rect(self):

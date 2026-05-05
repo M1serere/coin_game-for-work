@@ -41,11 +41,17 @@ class Player:
         if (keys[pygame.K_DOWN] or keys[pygame.K_s]) and self.y < screen_height - self.size:
             self.y += self.speed
 
-    def draw(self, screen):
+    def draw(self, screen, alpha=255):
         frame_index = (pygame.time.get_ticks() // self.animation_delay) % len(self.frames)
         draw_x = self.x + (self.size - self.sprite_width) // 2
         draw_y = self.y - (self.sprite_height - self.size)
-        screen.blit(self.frames[frame_index], (draw_x, draw_y))
+        frame = self.frames[frame_index]
+
+        if alpha < 255:
+            frame = frame.copy()
+            frame.set_alpha(alpha)
+
+        screen.blit(frame, (draw_x, draw_y))
 
     def get_rect(self):
         return pygame.Rect(self.x, self.y, self.size, self.size)
