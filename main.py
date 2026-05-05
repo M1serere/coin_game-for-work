@@ -53,6 +53,9 @@ pygame.display.set_caption("Coin Game")
 game_background = pygame.image.load(os.path.join(ASSETS_DIR, "fon_g.jpg")).convert()
 game_background = pygame.transform.scale(game_background, (SCREEN_WIDTH, SCREEN_HEIGHT))
 circle_image = pygame.image.load(os.path.join(ASSETS_DIR, "circle.png")).convert_alpha()
+cloud_overlay = pygame.image.load(os.path.join(ASSETS_DIR, "cloud.png")).convert_alpha()
+cloud_overlay = pygame.transform.smoothscale(cloud_overlay, (SCREEN_WIDTH, SCREEN_HEIGHT))
+cloud_overlay.set_alpha(155)
 
 try:
     hwnd = pygame.display.get_wm_info()["window"]
@@ -160,16 +163,20 @@ start_screen = True
 game_over = False
 result_text = ""
 paused = False
+exit_confirm_open = False
 settings_open = False
 dragging_slider = None
 top_reset_message = ""
 top_reset_message_time = 0
 focused_menu_index = 6
 
+exit_menu_button = pygame.Rect(510, 20, 100, 35)
 pause_button = pygame.Rect(620, 20, 75, 35)
 continue_button = pygame.Rect(700, 20, 90, 35)
 settings_button = pygame.Rect(665, 20, 125, 35)
 settings_close_button = pygame.Rect(SCREEN_WIDTH // 2 - 70, SCREEN_HEIGHT // 2 + 135, 140, 40)
+exit_yes_button = pygame.Rect(SCREEN_WIDTH // 2 - 130, SCREEN_HEIGHT // 2 + 45, 110, 40)
+exit_no_button = pygame.Rect(SCREEN_WIDTH // 2 + 20, SCREEN_HEIGHT // 2 + 45, 110, 40)
 music_slider = pygame.Rect(SCREEN_WIDTH // 2 - 150, SCREEN_HEIGHT // 2 - 45, 300, 8)
 player_speed_slider = pygame.Rect(SCREEN_WIDTH // 2 - 150, SCREEN_HEIGHT // 2 + 25, 300, 8)
 enemy_speed_slider = pygame.Rect(SCREEN_WIDTH // 2 - 150, SCREEN_HEIGHT // 2 + 95, 300, 8)
@@ -380,6 +387,22 @@ def draw_settings_panel():
     draw_slider(enemy_speed_slider, enemy_base_speed, ENEMY_SPEED_MIN, ENEMY_SPEED_MAX, "Скорость врага")
     draw_button(settings_close_button, "Закрыть", focused=True)
 
+def draw_exit_confirm_panel():
+    overlay = pygame.Surface((SCREEN_WIDTH, SCREEN_HEIGHT), pygame.SRCALPHA)
+    overlay.fill((0, 0, 0, 120))
+    screen.blit(overlay, (0, 0))
+
+    panel = pygame.Rect(SCREEN_WIDTH // 2 - 220, SCREEN_HEIGHT // 2 - 100, 440, 200)
+    pygame.draw.rect(screen, (255, 255, 255), panel)
+    pygame.draw.rect(screen, (0, 0, 0), panel, 2)
+
+    title = font.render("Выйти в главное меню?", True, (0, 0, 0))
+    title_rect = title.get_rect(center=(SCREEN_WIDTH // 2, panel.y + 55))
+    screen.blit(title, title_rect)
+
+    draw_button(exit_yes_button, "Да")
+    draw_button(exit_no_button, "Нет")
+
 def draw_button(rect, text, selected=False, disabled=False, focused=False):
     if disabled:
         fill_color = (220, 220, 220)
@@ -425,7 +448,7 @@ def start_game(start_time):
 def reset_round():
     global player, coin_x, coin_y, enemies, score, game_over, result_text
     global game_start_time, game_elapsed_time, last_frame_time
-    global paused, time_warning_played
+    global paused, exit_confirm_open, time_warning_played
     global last_enemy_double_time, enemy_speed_bonus
     global victory_animation_active, victory_animation_start_time, victory_teleport_played
 
@@ -455,6 +478,7 @@ def reset_round():
     last_frame_time = pygame.time.get_ticks()
 
     paused = False
+    exit_confirm_open = False
 
     time_warning_played = False
 
@@ -546,8 +570,24 @@ while running:
                 if start_game_button.collidepoint(mouse_pos):
                     start_game(current_time)
 
+            if event.button == 1 and exit_confirm_open:
+                mouse_pos = event.pos
+
+                if exit_yes_button.collidepoint(mouse_pos):
+                    time_sound.stop()
+                    restart_game()
+
+                if exit_no_button.collidepoint(mouse_pos):
+                    exit_confirm_open = False
+
+                continue
+
             if event.button == 1 and not input_name_screen and not start_screen and not game_over and not victory_animation_active:
                 mouse_pos = event.pos
+
+                if exit_menu_button.collidepoint(mouse_pos):
+                    exit_confirm_open = True
+                    continue
 
                 if pause_button.collidepoint(mouse_pos):
                     paused = True
@@ -607,6 +647,18 @@ while running:
                     dragging_slider = None
                     continue
 
+            if exit_confirm_open:
+                if event.key in (pygame.K_RETURN, pygame.K_y):
+                    time_sound.stop()
+                    restart_game()
+                    continue
+
+                if event.key in (pygame.K_ESCAPE, pygame.K_n):
+                    exit_confirm_open = False
+                    continue
+
+                continue
+
             if not input_name_screen and start_screen and not settings_open:
                 if event.key == pygame.K_DOWN:
                     move_menu_focus_by_direction(0, 1)
@@ -638,7 +690,7 @@ while running:
             if event.text.isprintable() and len(nickname) < 15:
                 nickname += event.text
 
-    if not start_screen and not game_over and not paused and not settings_open and not victory_animation_active:
+    if not start_screen and not game_over and not paused and not settings_open and not exit_confirm_open and not victory_animation_active:
         game_elapsed_time += frame_time
         keys = pygame.key.get_pressed()
         player.move(keys, SCREEN_WIDTH, SCREEN_HEIGHT)
@@ -693,7 +745,7 @@ while running:
     coin_rect = pygame.Rect(coin_x, coin_y, coin_size, coin_size)
     #enemy_rect = enemy.get_rect()
 
-    if not start_screen and not game_over and not paused and not settings_open and not victory_animation_active and player.get_rect().colliderect(coin_rect):
+    if not start_screen and not game_over and not paused and not settings_open and not exit_confirm_open and not victory_animation_active and player.get_rect().colliderect(coin_rect):
         score += 1
         player.grow_flame(PLAYER_FLAME_GROWTH)
         coin_sound.play()
@@ -704,7 +756,7 @@ while running:
             coin_x = random.randint(0, SCREEN_WIDTH - coin_size)
             coin_y = random.randint(100, SCREEN_HEIGHT - coin_size)
 
-    if not start_screen and not game_over and not paused and not settings_open and not victory_animation_active:
+    if not start_screen and not game_over and not paused and not settings_open and not exit_confirm_open and not victory_animation_active:
         for enemy in enemies:
             if player.get_rect().colliderect(enemy.get_rect()):
                 game_over = True
@@ -827,6 +879,8 @@ while running:
     elif not victory_finished:
         player.draw(screen)
 
+    screen.blit(cloud_overlay, (0, 0))
+
     if not start_screen and game_start_time > 0:
         elapsed_time = game_elapsed_time
         remaining_time = time_limit - elapsed_time
@@ -848,6 +902,9 @@ while running:
 
     screen.blit(score_text, (20, 20))
     screen.blit(help_text, (20, 60))
+
+    if not game_over and not victory_animation_active:
+        draw_button(exit_menu_button, "Меню")
 
     pygame.draw.rect(screen, (255, 255, 255), pause_button)
     pygame.draw.rect(screen, (0, 0, 0), pause_button, 2)
@@ -913,6 +970,9 @@ while running:
 
         draw_button(restart_button, "Новая игра")
         draw_button(main_menu_button, "Главное меню")
+
+    if exit_confirm_open:
+        draw_exit_confirm_panel()
 
     pygame.display.update()
 
